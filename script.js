@@ -59,20 +59,34 @@ function openHomeDetail(item) {
 
 function closeHomeDetail() { document.getElementById('homeDetailModal').style.display = 'none'; }
 
-// --- ADD NEW PAGE ---
+// --- CONSOLIDATED ADD NEW SEARCH LOGIC ---
 const adminSearch = document.getElementById('adminSearch');
+const adminSearchResults = document.getElementById('adminSearchResults');
+
 adminSearch.addEventListener('input', async (e) => {
-    if (e.target.value.length < 3) return;
-    const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${e.target.value}`);
+    const query = e.target.value;
+    if (query.length < 3) {
+        adminSearchResults.innerHTML = '';
+        adminSearchResults.style.display = 'none';
+        return;
+    }
+
+    const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`);
     const data = await res.json();
-    const resultsDiv = document.getElementById('adminSearchResults');
-    resultsDiv.innerHTML = '';
+    
+    adminSearchResults.innerHTML = '';
+    adminSearchResults.style.display = 'block';
+
     data.results.slice(0, 5).forEach(item => {
         const div = document.createElement('div');
         div.className = 'search-item';
         div.innerText = item.title || item.name;
-        div.onclick = () => selectForEdit(item);
-        resultsDiv.appendChild(div);
+        div.onclick = () => {
+            selectForEdit(item);
+            adminSearchResults.style.display = 'none';
+            adminSearch.value = ''; // Optional: clear search after selection
+        };
+        adminSearchResults.appendChild(div);
     });
 });
 
@@ -90,14 +104,14 @@ async function selectForEdit(item) {
     document.getElementById('editForm').style.display = 'block';
     document.getElementById('editTitle').innerText = tempSelection.title;
     document.getElementById('editPoster').src = IMG_PATH + tempSelection.poster;
-    document.getElementById('adminSearchResults').innerHTML = '';
+    adminSearchResults.innerHTML = '';
     toggleFormFields();
 }
 
 function toggleFormFields() {
     const status = document.getElementById('formStatus').value;
     document.getElementById('watchedFields').style.display = (status === 'watched' || status === 'inprogress') ? 'block' : 'none';
-    document.getElementById('tvFields').style.display = (tempSelection.type === 'tv') ? 'block' : 'none';
+    document.getElementById('tvFields').style.display = (tempSelection && tempSelection.type === 'tv') ? 'block' : 'none';
 }
 
 // --- STAR RATING LOGIC ---
@@ -111,6 +125,7 @@ document.querySelectorAll('.star').forEach(star => {
 });
 
 function commitToLibrary() {
+    if (!tempSelection) return;
     const entry = {
         ...tempSelection,
         status: document.getElementById('formStatus').value,
@@ -157,4 +172,5 @@ async function showExploreDetail(item) {
     `;
 }
 
+// Start on home page
 showPage('homePage');

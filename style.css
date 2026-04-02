@@ -344,7 +344,7 @@ input:focus, select:focus, textarea:focus {
 
 .category-head { border: none; margin: 0; padding: 0; }
 
-.section-filters { display: flex; gap: 10px; }
+.section-filters { display: flex; gap: 10px; flex-wrap: wrap; }
 .section-filters select {
     padding: 6px 30px 6px 12px;
     font-size: 0.8rem;
@@ -395,3 +395,33 @@ input:focus, select:focus, textarea:focus {
 }
 #exploreSearch { flex: 2; padding: 15px; border-radius: 8px; font-size: 1rem; }
 #exploreCategory { flex: 1; border-radius: 8px; font-weight: bold; }
+
+/* Expand Button & Grid Controls */
+.expand-btn {
+    background: none;
+    border: 1px solid #333;
+    color: #888;
+    cursor: pointer;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    transition: 0.2s;
+    font-family: 'Outfit';
+}
+
+.expand-btn:hover {
+    color: var(--white);
+    border-color: var(--white);
+}
+
+.expanded-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    flex-wrap: wrap;
+    overflow: visible !important;
+}
+
+/* Hide navigation arrows when expanded */
+.scroll-wrapper.expanded .nav-arrow {
+    display: none !important;
+}

@@ -25,23 +25,46 @@
         </div>
         <div class="nav-links">
             <button onclick="showPage('homePage')">Collection</button>
-            <button onclick="showPage('addPage')">Add New</button>
+            <button onclick="showPage('addPage')">Curate</button>
             <button onclick="showPage('explorePage')">Explore</button>
         </div>
     </nav>
 
     <main id="homePage" class="page-content">
         <section class="archive-section">
-            <h2 class="category-head">Yet to Watch</h2>
-            <div class="horizontal-scroll" id="homeWatchlist"></div>
+            <div class="category-header">
+                <h2 class="category-head">Yet to Watch</h2>
+                <div class="section-filters" id="filters-watchlist"></div>
+            </div>
+            <div class="scroll-wrapper">
+                <button class="nav-arrow left" onclick="scrollSection('homeWatchlist', -600)">&#10094;</button>
+                <div class="horizontal-scroll" id="homeWatchlist"></div>
+                <button class="nav-arrow right" onclick="scrollSection('homeWatchlist', 600)">&#10095;</button>
+            </div>
         </section>
+
         <section class="archive-section">
-            <h2 class="category-head">In Progress</h2>
-            <div class="horizontal-scroll" id="homeInProgress"></div>
+            <div class="category-header">
+                <h2 class="category-head">In Progress</h2>
+                <div class="section-filters" id="filters-inprogress"></div>
+            </div>
+            <div class="scroll-wrapper">
+                <button class="nav-arrow left" onclick="scrollSection('homeInProgress', -600)">&#10094;</button>
+                <div class="horizontal-scroll" id="homeInProgress"></div>
+                <button class="nav-arrow right" onclick="scrollSection('homeInProgress', 600)">&#10095;</button>
+            </div>
         </section>
+
         <section class="archive-section">
-            <h2 class="category-head">Completed</h2>
-            <div class="horizontal-scroll" id="homeWatched"></div>
+            <div class="category-header">
+                <h2 class="category-head">Completed</h2>
+                <div class="section-filters" id="filters-watched"></div>
+            </div>
+            <div class="scroll-wrapper">
+                <button class="nav-arrow left" onclick="scrollSection('homeWatched', -600)">&#10094;</button>
+                <div class="horizontal-scroll" id="homeWatched"></div>
+                <button class="nav-arrow right" onclick="scrollSection('homeWatched', 600)">&#10095;</button>
+            </div>
         </section>
     </main>
 
@@ -66,73 +89,81 @@
     </div>
 
     <main id="addPage" class="page-content" style="display:none;">
-    <div class="admin-container">
-        <h1 class="page-header">Curate Collection</h1>
-        <input type="text" id="adminSearch" placeholder="Search for a title to add or edit...">
-        <div id="adminSearchResults" class="admin-search-results"></div>
-        
-        <div id="editForm" class="edit-form" style="display:none;">
-            <span class="close-form" onclick="closeEditForm()">&times;</span>
+        <div class="admin-container">
+            <h1 class="page-header">Curate Collection</h1>
+            <input type="text" id="adminSearch" placeholder="Search for a single title to add or edit...">
+            <div id="adminSearchResults" class="admin-search-results"></div>
             
-            <div class="form-grid">
-                <div class="poster-container">
-                    <img id="editPoster" src="" alt="">
-                </div>
-                <div class="form-inputs">
-                    <h2 id="editTitle"></h2>
-                    <div class="input-group">
-                        <label>Status</label>
-                        <select id="formStatus" onchange="toggleFormFields()">
-                            <option value="watchlist">Yet to Watch</option>
-                            <option value="inprogress">In Progress</option>
-                            <option value="watched">Completed</option>
-                        </select>
-                    </div>
-                    
-                    <div id="watchedFields" style="display:none;">
-                        <div id="tvFields" style="display:none;" class="input-group">
-                            <label>Progress (Season / Episode)</label>
-                            <div class="flex-row">
-                                <select id="formSeason" onchange="updateEpisodes()">
-                                    <option value="">Select Season</option>
-                                </select>
-                                <select id="formEp">
-                                    <option value="">Select Episode</option>
-                                </select>
+            <div id="editForm" class="edit-form" style="display:none;">
+                <span class="close-form" onclick="closeEditForm()">&times;</span>
+                <div class="form-grid">
+                    <div class="poster-container"><img id="editPoster" src="" alt=""></div>
+                    <div class="form-inputs">
+                        <h2 id="editTitle"></h2>
+                        <div class="input-group">
+                            <label>Status</label>
+                            <select id="formStatus" onchange="toggleFormFields()">
+                                <option value="watchlist">Yet to Watch</option>
+                                <option value="inprogress">In Progress</option>
+                                <option value="watched">Completed</option>
+                            </select>
+                        </div>
+                        
+                        <div id="watchedFields" style="display:none;">
+                            <div id="tvFields" style="display:none;" class="input-group">
+                                <label>Progress (Season / Episode)</label>
+                                <div class="flex-row">
+                                    <select id="formSeason" onchange="updateEpisodes()"><option value="">Select Season</option></select>
+                                    <select id="formEp"><option value="">Select Episode</option></select>
+                                </div>
+                            </div>
+                            <div class="input-group" id="ratingGroup" style="display:none;">
+                                <label>Personal Rating</label>
+                                <div class="star-rating" id="starInput">
+                                    <span class="star" data-value="1">&#9733;</span>
+                                    <span class="star" data-value="2">&#9733;</span>
+                                    <span class="star" data-value="3">&#9733;</span>
+                                    <span class="star" data-value="4">&#9733;</span>
+                                    <span class="star" data-value="5">&#9733;</span>
+                                </div>
+                            </div>
+                            <div class="input-group" id="reviewGroup" style="display:none;">
+                                <label>Personal Review</label>
+                                <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
                             </div>
                         </div>
-                        <div class="input-group">
-                            <label>Personal Rating</label>
-                            <div class="star-rating" id="starInput">
-                                <span class="star" data-value="1">&#9733;</span>
-                                <span class="star" data-value="2">&#9733;</span>
-                                <span class="star" data-value="3">&#9733;</span>
-                                <span class="star" data-value="4">&#9733;</span>
-                                <span class="star" data-value="5">&#9733;</span>
-                            </div>
+                        <div style="display: flex; gap: 15px; margin-top: 10px;">
+                            <button class="save-btn" style="flex: 2;" onclick="commitToLibrary()">Update Collection</button>
+                            <button class="save-btn" style="flex: 1; background: #222; color: white;" onclick="closeEditForm()">Cancel</button>
                         </div>
-                        <div class="input-group">
-                            <label>Archive Notes</label>
-                            <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 15px; margin-top: 10px;">
-                        <button class="save-btn" style="flex: 2;" onclick="commitToLibrary()">Update Collection</button>
-                        <button class="save-btn" style="flex: 1; background: #222; color: white;" onclick="closeEditForm()">Cancel</button>
                     </div>
                 </div>
             </div>
+
+            <div class="bulk-import-box">
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-family: 'Outfit';">Bulk Import</h3>
+                <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 15px;">Paste your movie/show titles below (one per line).</p>
+                <textarea id="bulkImportText" rows="6" placeholder="The Dark Knight&#10;Inception"></textarea>
+                <button class="save-btn" id="bulkBtn" onclick="runBulkImport()" style="padding: 12px; margin-top: 15px; width: 100%;">Start Bulk Import</button>
+                <p id="bulkStatus" style="font-size: 0.85rem; color: #bbb; margin-top: 10px; display: none;">Importing...</p>
+            </div>
         </div>
-    </div>
-</main>
+    </main>
 
     <main id="explorePage" class="page-content" style="display:none;">
+        <div class="explore-header-controls">
+            <input type="text" id="exploreSearch" placeholder="Search TMDB..." oninput="handleExploreSearch(event)">
+            <select id="exploreCategory" onchange="loadExploreCategory()">
+                <option value="trending">🔥 Trending Today</option>
+                <option value="popular_movie">🎬 Popular Movies</option>
+                <option value="popular_tv">📺 Popular TV Shows</option>
+                <option value="top_rated">⭐ All-Time Top Rated</option>
+            </select>
+        </div>
         <div class="explore-layout">
             <div class="explore-grid" id="exploreGrid"></div>
             <div id="exploreDetail" class="explore-detail-pane">
-                <div id="detailContent" class="scrollable-content">
-                    <p class="dimmed">Select a title to explore...</p>
-                </div>
+                <div id="detailContent" class="scrollable-content"><p class="dimmed">Select a title to explore...</p></div>
             </div>
         </div>
     </main>

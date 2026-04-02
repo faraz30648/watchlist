@@ -6,7 +6,7 @@ let myData = JSON.parse(localStorage.getItem('watchopedia_v9')) || { watchlist: 
 let tempSelection = null;
 let currentRating = 0;
 
-// Filter States (Added Search and Category)
+// Filter States
 let activeFilters = { 
     watchlist: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
     inprogress: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
@@ -54,10 +54,10 @@ function closeEditForm() {
     document.getElementById('editForm').style.display = 'none';
     document.getElementById('adminSearch').value = '';
     tempSelection = null;
-    showPage('homePage'); // Returns to home if user cancels
+    showPage('homePage');
 }
 
-// --- HOME PAGE LOGIC (Filters, Search, Scrolling & Expanding) ---
+// --- HOME PAGE LOGIC ---
 function scrollSection(id, amount) {
     document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' });
 }
@@ -76,9 +76,10 @@ function toggleExpand(id, btn) {
     }
 }
 
+// THE FIX: When a filter updates, we tell renderHome NOT to rebuild the filter boxes.
 function updateFilter(section, type, value) {
     activeFilters[section][type] = value;
-    renderHome();
+    renderHome(false); 
 }
 
 function buildFilters(list, sectionId) {
@@ -117,9 +118,12 @@ function buildFilters(list, sectionId) {
                           createSelect('lang', langs, activeFilters[sectionId].lang);
 }
 
-function renderHome() {
+// THE FIX: Added rebuildFilters flag. Defaults to true (initial load), but false during typing.
+function renderHome(rebuildFilters = true) {
     const draw = (rawList, id, sectionKey) => {
-        buildFilters(rawList, sectionKey);
+        if (rebuildFilters) {
+            buildFilters(rawList, sectionKey);
+        }
 
         const fCat = activeFilters[sectionKey].category;
         const fGenre = activeFilters[sectionKey].genre;
@@ -138,7 +142,7 @@ function renderHome() {
         el.innerHTML = list.length ? '' : '<p style="color:#333; font-style:italic;">No matches.</p>';
         
         list.forEach(item => {
-            if (!item.poster || item.poster === 'undefined') return; // Safety block for broken old data
+            if (!item.poster || item.poster === 'undefined') return;
 
             const card = document.createElement('div');
             card.className = 'card';
@@ -159,10 +163,12 @@ function renderHome() {
     draw(myData.inprogress, 'homeInProgress', 'inprogress');
     draw(myData.watched, 'homeWatched', 'watched');
 
-    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    if (rebuildFilters) {
+        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    }
 }
 
-// --- CONTEXT MENU (With Smart Form Modals) ---
+// --- CONTEXT MENU ---
 const contextMenu = document.getElementById('contextMenu');
 let rightClickedItem = null;
 
@@ -262,7 +268,6 @@ async function selectForEdit(item) {
         details = await res.json();
     } catch(err) {}
 
-    // THE FIX: This safely grabs the poster and backdrop whether it came from the API search or your local database
     tempSelection = {
         id: item.id, 
         title: item.title || item.name, 

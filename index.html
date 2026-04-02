@@ -34,7 +34,10 @@
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">Yet to Watch</h2>
-                <div class="section-filters" id="filters-watchlist"></div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div class="section-filters" id="filters-watchlist"></div>
+                    <button class="expand-btn" onclick="toggleExpand('homeWatchlist', this)">Expand</button>
+                </div>
             </div>
             <div class="scroll-wrapper">
                 <button class="nav-arrow left" onclick="scrollSection('homeWatchlist', -600)">&#10094;</button>
@@ -46,7 +49,10 @@
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">In Progress</h2>
-                <div class="section-filters" id="filters-inprogress"></div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div class="section-filters" id="filters-inprogress"></div>
+                    <button class="expand-btn" onclick="toggleExpand('homeInProgress', this)">Expand</button>
+                </div>
             </div>
             <div class="scroll-wrapper">
                 <button class="nav-arrow left" onclick="scrollSection('homeInProgress', -600)">&#10094;</button>
@@ -58,7 +64,10 @@
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">Completed</h2>
-                <div class="section-filters" id="filters-watched"></div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div class="section-filters" id="filters-watched"></div>
+                    <button class="expand-btn" onclick="toggleExpand('homeWatched', this)">Expand</button>
+                </div>
             </div>
             <div class="scroll-wrapper">
                 <button class="nav-arrow left" onclick="scrollSection('homeWatched', -600)">&#10094;</button>

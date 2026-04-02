@@ -28,7 +28,7 @@
             <div class="horizontal-scroll" id="homeInProgress"></div>
         </section>
         <section class="archive-section">
-            <h2 class="category-head">The Archive</h2>
+            <h2 class="category-head">Completed</h2>
             <div class="horizontal-scroll" id="homeWatched"></div>
         </section>
     </main>
@@ -71,7 +71,7 @@
                             <select id="formStatus" onchange="toggleFormFields()">
                                 <option value="watchlist">Yet to Watch</option>
                                 <option value="inprogress">In Progress</option>
-                                <option value="watched">Watched</option>
+                                <option value="watched">Completed</option>
                             </select>
                         </div>
                         
@@ -79,8 +79,12 @@
                             <div id="tvFields" style="display:none;" class="input-group">
                                 <label>Progress (Season / Episode)</label>
                                 <div class="flex-row">
-                                    <input type="number" id="formSeason" placeholder="S">
-                                    <input type="number" id="formEp" placeholder="E">
+                                    <select id="formSeason" onchange="updateEpisodes()">
+                                        <option value="">Select Season</option>
+                                    </select>
+                                    <select id="formEp">
+                                        <option value="">Select Episode</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="input-group">
@@ -98,7 +102,10 @@
                                 <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
                             </div>
                         </div>
-                        <button class="save-btn" onclick="commitToLibrary()">Update Archive</button>
+                        <div style="display: flex; gap: 15px; margin-top: 10px;">
+                            <button class="save-btn" style="flex: 2;" onclick="commitToLibrary()">Update Collection</button>
+                            <button class="save-btn" style="flex: 1; background: #222; color: white;" onclick="closeEditForm()">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>

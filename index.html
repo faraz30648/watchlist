@@ -10,26 +10,25 @@
 <body>
 
     <nav class="navbar">
-    <div class="logo" onclick="showPage('homePage')" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-            <line x1="7" y1="2" x2="7" y2="22"></line>
-            <line x1="17" y1="2" x2="17" y2="22"></line>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <line x1="2" y1="7" x2="7" y2="7"></line>
-            <line x1="2" y1="17" x2="7" y2="17"></line>
-            <line x1="17" y1="17" x2="22" y2="17"></line>
-            <line x1="17" y1="7" x2="22" y2="7"></line>
-        </svg>
-        WATCHOPEDIA
-    </div>
-    
-    <div class="nav-links">
-        <button onclick="showPage('homePage')">Collection</button>
-        <button onclick="showPage('addPage')">Add New</button>
-        <button onclick="showPage('explorePage')">Explore</button>
-    </div>
-</nav>
+        <div class="logo" onclick="showPage('homePage')" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+            </svg>
+            WATCHOPEDIA
+        </div>
+        <div class="nav-links">
+            <button onclick="showPage('homePage')">Collection</button>
+            <button onclick="showPage('addPage')">Add New</button>
+            <button onclick="showPage('explorePage')">Explore</button>
+        </div>
+    </nav>
 
     <main id="homePage" class="page-content">
         <section class="archive-section">
@@ -67,63 +66,65 @@
     </div>
 
     <main id="addPage" class="page-content" style="display:none;">
-        <div class="admin-container">
-            <h1 class="page-header">Curate Collection</h1>
-            <input type="text" id="adminSearch" placeholder="Search for a title to add or edit...">
-            <div id="adminSearchResults" class="admin-search-results"></div>
+    <div class="admin-container">
+        <h1 class="page-header">Curate Collection</h1>
+        <input type="text" id="adminSearch" placeholder="Search for a title to add or edit...">
+        <div id="adminSearchResults" class="admin-search-results"></div>
+        
+        <div id="editForm" class="edit-form" style="display:none;">
+            <span class="close-form" onclick="closeEditForm()">&times;</span>
             
-            <div id="editForm" class="edit-form" style="display:none;">
-                <div class="form-grid">
-                    <div class="poster-container">
-                        <img id="editPoster" src="" alt="">
+            <div class="form-grid">
+                <div class="poster-container">
+                    <img id="editPoster" src="" alt="">
+                </div>
+                <div class="form-inputs">
+                    <h2 id="editTitle"></h2>
+                    <div class="input-group">
+                        <label>Status</label>
+                        <select id="formStatus" onchange="toggleFormFields()">
+                            <option value="watchlist">Yet to Watch</option>
+                            <option value="inprogress">In Progress</option>
+                            <option value="watched">Completed</option>
+                        </select>
                     </div>
-                    <div class="form-inputs">
-                        <h2 id="editTitle"></h2>
+                    
+                    <div id="watchedFields" style="display:none;">
+                        <div id="tvFields" style="display:none;" class="input-group">
+                            <label>Progress (Season / Episode)</label>
+                            <div class="flex-row">
+                                <select id="formSeason" onchange="updateEpisodes()">
+                                    <option value="">Select Season</option>
+                                </select>
+                                <select id="formEp">
+                                    <option value="">Select Episode</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="input-group">
-                            <label>Status</label>
-                            <select id="formStatus" onchange="toggleFormFields()">
-                                <option value="watchlist">Yet to Watch</option>
-                                <option value="inprogress">In Progress</option>
-                                <option value="watched">Completed</option>
-                            </select>
-                        </div>
-                        
-                        <div id="watchedFields" style="display:none;">
-                            <div id="tvFields" style="display:none;" class="input-group">
-                                <label>Progress (Season / Episode)</label>
-                                <div class="flex-row">
-                                    <select id="formSeason" onchange="updateEpisodes()">
-                                        <option value="">Select Season</option>
-                                    </select>
-                                    <select id="formEp">
-                                        <option value="">Select Episode</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="input-group">
-                                <label>Personal Rating</label>
-                                <div class="star-rating" id="starInput">
-                                    <span class="star" data-value="1">&#9733;</span>
-                                    <span class="star" data-value="2">&#9733;</span>
-                                    <span class="star" data-value="3">&#9733;</span>
-                                    <span class="star" data-value="4">&#9733;</span>
-                                    <span class="star" data-value="5">&#9733;</span>
-                                </div>
-                            </div>
-                            <div class="input-group">
-                                <label>Archive Notes</label>
-                                <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
+                            <label>Personal Rating</label>
+                            <div class="star-rating" id="starInput">
+                                <span class="star" data-value="1">&#9733;</span>
+                                <span class="star" data-value="2">&#9733;</span>
+                                <span class="star" data-value="3">&#9733;</span>
+                                <span class="star" data-value="4">&#9733;</span>
+                                <span class="star" data-value="5">&#9733;</span>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 15px; margin-top: 10px;">
-                            <button class="save-btn" style="flex: 2;" onclick="commitToLibrary()">Update Collection</button>
-                            <button class="save-btn" style="flex: 1; background: #222; color: white;" onclick="closeEditForm()">Cancel</button>
+                        <div class="input-group">
+                            <label>Archive Notes</label>
+                            <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
                         </div>
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <button class="save-btn" style="flex: 2;" onclick="commitToLibrary()">Update Collection</button>
+                        <button class="save-btn" style="flex: 1; background: #222; color: white;" onclick="closeEditForm()">Cancel</button>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</main>
 
     <main id="explorePage" class="page-content" style="display:none;">
         <div class="explore-layout">
@@ -135,6 +136,14 @@
             </div>
         </div>
     </main>
+
+    <div id="contextMenu" class="context-menu" style="display: none;">
+        <div class="menu-item" id="menuMoveWatchlist" onclick="contextChangeStatus('watchlist')">Move to Yet to Watch</div>
+        <div class="menu-item" id="menuMoveInProgress" onclick="contextChangeStatus('inprogress')">Move to In Progress</div>
+        <div class="menu-item" id="menuMoveWatched" onclick="contextChangeStatus('watched')">Mark as Completed</div>
+        <hr>
+        <div class="menu-item danger" onclick="contextRemoveItem()">Remove from Collection</div>
+    </div>
 
     <script src="script.js"></script>
 </body>

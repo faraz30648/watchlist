@@ -20,8 +20,12 @@
 
     <main id="homePage" class="page-content">
         <section class="archive-section">
-            <h2 class="category-head">In Progress</h2>
+            <h2 class="category-head">Yet to Watch</h2>
             <div class="horizontal-scroll" id="homeWatchlist"></div>
+        </section>
+        <section class="archive-section">
+            <h2 class="category-head">In Progress</h2>
+            <div class="horizontal-scroll" id="homeInProgress"></div>
         </section>
         <section class="archive-section">
             <h2 class="category-head">The Archive</h2>
@@ -57,26 +61,42 @@
             
             <div id="editForm" class="edit-form" style="display:none;">
                 <div class="form-grid">
-                    <img id="editPoster" src="" alt="">
+                    <div class="poster-container">
+                        <img id="editPoster" src="" alt="">
+                    </div>
                     <div class="form-inputs">
                         <h2 id="editTitle"></h2>
-                        <label>Status</label>
-                        <select id="formStatus" onchange="toggleFormFields()">
-                            <option value="watchlist">Watchlist</option>
-                            <option value="watched">Already Watched</option>
-                        </select>
+                        <div class="input-group">
+                            <label>Status</label>
+                            <select id="formStatus" onchange="toggleFormFields()">
+                                <option value="watchlist">Yet to Watch</option>
+                                <option value="inprogress">In Progress</option>
+                                <option value="watched">Watched</option>
+                            </select>
+                        </div>
+                        
                         <div id="watchedFields" style="display:none;">
-                            <div id="tvFields" style="display:none;">
+                            <div id="tvFields" style="display:none;" class="input-group">
                                 <label>Progress (Season / Episode)</label>
-                                <div style="display:flex; gap:10px;">
+                                <div class="flex-row">
                                     <input type="number" id="formSeason" placeholder="S">
                                     <input type="number" id="formEp" placeholder="E">
                                 </div>
                             </div>
-                            <label>Personal Rating /10</label>
-                            <input type="number" id="formRating" max="10">
-                            <label>Archive Notes</label>
-                            <textarea id="formReview" rows="5"></textarea>
+                            <div class="input-group">
+                                <label>Personal Rating</label>
+                                <div class="star-rating" id="starInput">
+                                    <span class="star" data-value="1">&#9733;</span>
+                                    <span class="star" data-value="2">&#9733;</span>
+                                    <span class="star" data-value="3">&#9733;</span>
+                                    <span class="star" data-value="4">&#9733;</span>
+                                    <span class="star" data-value="5">&#9733;</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Archive Notes</label>
+                                <textarea id="formReview" rows="4" placeholder="Your thoughts..."></textarea>
+                            </div>
                         </div>
                         <button class="save-btn" onclick="commitToLibrary()">Update Archive</button>
                     </div>
@@ -89,7 +109,9 @@
         <div class="explore-layout">
             <div class="explore-grid" id="exploreGrid"></div>
             <div id="exploreDetail" class="explore-detail-pane">
-                <div id="detailContent"><p class="dimmed">Select a title to explore...</p></div>
+                <div id="detailContent" class="scrollable-content">
+                    <p class="dimmed">Select a title to explore...</p>
+                </div>
             </div>
         </div>
     </main>

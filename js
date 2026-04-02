@@ -129,5 +129,8 @@ async function showExploreDetail(item) {
         <p class="accent-text">${data.genres.map(g=>g.name).join(' • ')}</p>
         <p style="font-size:0.85rem">${data.overview}</p>
         <button class="save-btn" style="width:100%" onclick='showPage("addPage"); selectForEdit(${JSON.stringify(item)})'>Import to Curator</button>
-    `;
+    `; // Added missing backtick and semicolon
+} // Added missing closing brace for the function
+
+// Initialize the app on the Home Page
 showPage('homePage');

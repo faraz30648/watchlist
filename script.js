@@ -2,30 +2,27 @@ const API_KEY = '0010a32a4e1e60188f2036b82b0a8a1b';
 const IMG_PATH = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_PATH = 'https://image.tmdb.org/t/p/w1280';
 
-let myData = JSON.parse(localStorage.getItem('watchopedia_v9')) || { watchlist: [], inprogress: [], watched: [] };
+let myData = JSON.parse(localStorage.getItem('watchopedia_v10')) || { watchlist: [], inprogress: [], watched: [] };
 let tempSelection = null;
 let currentRating = 0;
 
-// Filter States
+// Filters
 let activeFilters = { 
     watchlist: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
     inprogress: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
     watched: { search: '', category: 'All', genre: 'All', lang: 'All' } 
 };
 
-// Utility: Convert language code to full language name
+// Utilities
 function getLangName(code) {
     if (!code || code === 'N/A') return 'Unknown';
     if (code.length > 2 && code !== 'N/A') return code;
     try {
         const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
         return displayNames.of(code.toLowerCase());
-    } catch (e) {
-        return code.toUpperCase();
-    }
+    } catch (e) { return code.toUpperCase(); }
 }
 
-// Utility: Smart Category Derivation
 function deriveCategory(type, details) {
     let cat = type === 'tv' ? 'Series' : 'Movie';
     if (details && details.genres) {
@@ -33,14 +30,21 @@ function deriveCategory(type, details) {
         if (genreNames.includes('Documentary')) {
             cat = 'Documentary';
         } else if (genreNames.includes('Animation')) {
-            if (details.origin_country && details.origin_country.includes('JP')) {
-                cat = 'Anime';
-            } else {
-                cat = 'Animation';
-            }
+            if (details.origin_country && details.origin_country.includes('JP')) cat = 'Anime';
+            else cat = 'Animation';
         }
     }
     return cat;
+}
+
+// Navigation & Reset
+function resetFiltersAndShowHome() {
+    activeFilters = { 
+        watchlist: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
+        inprogress: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
+        watched: { search: '', category: 'All', genre: 'All', lang: 'All' } 
+    };
+    showPage('homePage');
 }
 
 function showPage(pageId) {
@@ -57,26 +61,19 @@ function closeEditForm() {
     showPage('homePage');
 }
 
-// --- HOME PAGE LOGIC ---
-function scrollSection(id, amount) {
-    document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' });
-}
+// --- HOMEPAGE LOGIC ---
+function scrollSection(id, amount) { document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' }); }
 
 function toggleExpand(id, btn) {
     const el = document.getElementById(id);
     const wrapper = el.parentElement;
     if (el.classList.contains('expanded-grid')) {
-        el.classList.remove('expanded-grid');
-        wrapper.classList.remove('expanded');
-        btn.innerText = 'Expand';
+        el.classList.remove('expanded-grid'); wrapper.classList.remove('expanded'); btn.innerText = 'Expand';
     } else {
-        el.classList.add('expanded-grid');
-        wrapper.classList.add('expanded');
-        btn.innerText = 'Collapse';
+        el.classList.add('expanded-grid'); wrapper.classList.add('expanded'); btn.innerText = 'Collapse';
     }
 }
 
-// THE FIX: When a filter updates, we tell renderHome NOT to rebuild the filter boxes.
 function updateFilter(section, type, value) {
     activeFilters[section][type] = value;
     renderHome(false); 
@@ -86,14 +83,22 @@ function buildFilters(list, sectionId) {
     const container = document.getElementById(`filters-${sectionId}`);
     if (!container) return;
 
-    let categories = new Set();
-    let genres = new Set();
-    let langs = new Set();
+    let categories = new Set(); let genres = new Set(); let langs = new Set();
 
     list.forEach(item => {
         if (item.language && item.language.length === 2) item.language = getLangName(item.language);
         if (!item.language) item.language = 'Unknown';
-        if (!item.mediaCategory) item.mediaCategory = item.type === 'tv' ? 'Series' : 'Movie';
+        
+        // Smart fallback for legacy data
+        if (!item.mediaCategory || item.mediaCategory === 'Movie' || item.mediaCategory === 'Series') {
+            let cat = item.type === 'tv' ? 'Series' : 'Movie';
+            if (item.genres && item.genres.includes('Documentary')) cat = 'Documentary';
+            else if (item.genres && item.genres.includes('Animation')) {
+                if (item.language === 'Japanese' || item.language === 'ja') cat = 'Anime';
+                else cat = 'Animation';
+            }
+            item.mediaCategory = cat;
+        }
 
         categories.add(item.mediaCategory);
         if (item.genres && item.genres !== 'N/A') item.genres.split(', ').forEach(g => genres.add(g));
@@ -107,28 +112,30 @@ function buildFilters(list, sectionId) {
             ${Array.from(options).sort().map(opt => `<option value="${opt}" ${currentValue === opt ? 'selected' : ''}>${opt}</option>`).join('')}
         </select>`;
     };
-
     const createSearch = (currentValue) => {
         return `<input type="text" class="section-search" placeholder="Search..." value="${currentValue}" oninput="updateFilter('${sectionId}', 'search', this.value)">`;
     };
 
-    container.innerHTML = createSearch(activeFilters[sectionId].search) +
-                          createSelect('category', categories, activeFilters[sectionId].category) + 
-                          createSelect('genre', genres, activeFilters[sectionId].genre) + 
-                          createSelect('lang', langs, activeFilters[sectionId].lang);
+    container.innerHTML = createSearch(activeFilters[sectionId].search) + createSelect('category', categories, activeFilters[sectionId].category) + createSelect('genre', genres, activeFilters[sectionId].genre) + createSelect('lang', langs, activeFilters[sectionId].lang);
 }
 
-// THE FIX: Added rebuildFilters flag. Defaults to true (initial load), but false during typing.
 function renderHome(rebuildFilters = true) {
-    const draw = (rawList, id, sectionKey) => {
-        if (rebuildFilters) {
-            buildFilters(rawList, sectionKey);
-        }
+    // Render Banner
+    const banner = document.getElementById('inProgressBanner');
+    if (myData.inprogress.length > 0) {
+        const item = myData.inprogress[myData.inprogress.length - 1]; // Show most recently added
+        banner.style.backgroundImage = `url(${BACKDROP_PATH + item.backdrop})`;
+        document.getElementById('bannerTitle').innerText = item.title;
+        banner.style.display = 'block';
+        banner.onclick = () => openHomeDetail(item);
+    } else { banner.style.display = 'none'; }
 
-        const fCat = activeFilters[sectionKey].category;
-        const fGenre = activeFilters[sectionKey].genre;
-        const fLang = activeFilters[sectionKey].lang;
-        const fSearch = activeFilters[sectionKey].search.toLowerCase();
+    // Render Lists
+    const draw = (rawList, id, sectionKey) => {
+        if (rebuildFilters) buildFilters(rawList, sectionKey);
+
+        const fCat = activeFilters[sectionKey].category; const fGenre = activeFilters[sectionKey].genre;
+        const fLang = activeFilters[sectionKey].lang; const fSearch = activeFilters[sectionKey].search.toLowerCase();
         
         let list = rawList.filter(item => {
             let passSearch = fSearch === '' || (item.title && item.title.toLowerCase().includes(fSearch));
@@ -143,18 +150,12 @@ function renderHome(rebuildFilters = true) {
         
         list.forEach(item => {
             if (!item.poster || item.poster === 'undefined') return;
-
             const card = document.createElement('div');
             card.className = 'card';
             card.oncontextmenu = (e) => showContextMenu(e, item);
             
-            const progressText = (item.status === 'inprogress' && item.season) 
-                ? `<div class="card-progress">S${item.season} E${item.episode || '?'}</div>` : '';
-
-            card.innerHTML = `
-                <img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
-                ${progressText}
-            `;
+            const progressText = (item.status === 'inprogress' && item.season) ? `<div class="card-progress">S${item.season} E${item.episode || '?'}</div>` : '';
+            card.innerHTML = `<img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>${progressText}`;
             el.appendChild(card);
         });
     };
@@ -163,9 +164,7 @@ function renderHome(rebuildFilters = true) {
     draw(myData.inprogress, 'homeInProgress', 'inprogress');
     draw(myData.watched, 'homeWatched', 'watched');
 
-    if (rebuildFilters) {
-        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
-    }
+    if (rebuildFilters) localStorage.setItem('watchopedia_v10', JSON.stringify(myData));
 }
 
 // --- CONTEXT MENU ---
@@ -173,8 +172,7 @@ const contextMenu = document.getElementById('contextMenu');
 let rightClickedItem = null;
 
 function showContextMenu(e, item) {
-    e.preventDefault();
-    rightClickedItem = item;
+    e.preventDefault(); rightClickedItem = item;
     
     document.getElementById('menuMoveWatchlist').style.display = item.status === 'watchlist' ? 'none' : 'block';
     document.getElementById('menuMoveInProgress').style.display = item.status === 'inprogress' ? 'none' : 'block';
@@ -202,7 +200,7 @@ async function contextChangeStatus(newStatus) {
         const item = myData[old].splice(idx, 1)[0];
         item.status = newStatus;
         myData[newStatus].push(item);
-        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+        localStorage.setItem('watchopedia_v10', JSON.stringify(myData));
         renderHome();
     }
 }
@@ -210,16 +208,27 @@ async function contextChangeStatus(newStatus) {
 function contextRemoveItem() {
     if (rightClickedItem) {
         ['watchlist', 'inprogress', 'watched'].forEach(key => { myData[key] = myData[key].filter(i => i.id !== rightClickedItem.id); });
-        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+        localStorage.setItem('watchopedia_v10', JSON.stringify(myData));
         renderHome();
     }
+}
+
+async function modalChangeStatus(id, oldStatus, newStatus) {
+    closeHomeDetail();
+    rightClickedItem = myData[oldStatus].find(i => i.id === id);
+    await contextChangeStatus(newStatus);
 }
 
 // --- RECORD DETAIL MODAL ---
 function openHomeDetail(item) {
     document.getElementById('modalHero').style.backgroundImage = `url(${BACKDROP_PATH + item.backdrop})`;
     document.getElementById('hTitle').innerText = item.title;
-    document.getElementById('hMeta').innerText = `${item.mediaCategory || 'Media'} • ${item.genres} • ${item.language || 'N/A'}`;
+    
+    // Status Pill
+    const displayStatus = item.status === 'inprogress' ? 'In Progress' : item.status === 'watched' ? 'Completed' : 'Yet to Watch';
+    let statusPill = `<span class="status-pill active">${displayStatus}</span>`;
+    document.getElementById('hMeta').innerHTML = `${statusPill} <span class="accent-text">${item.mediaCategory || 'Media'} • ${item.genres} • ${item.language || 'N/A'}</span>`;
+    
     document.getElementById('hPlot').innerText = item.overview;
     document.getElementById('hCast').innerText = item.cast;
 
@@ -229,7 +238,17 @@ function openHomeDetail(item) {
     
     journal.innerHTML = item.status === 'watched' ? 
         `<h3>Journal Entry</h3><p>Rating: <span style="color:#fff">${'★'.repeat(item.rating) || 'Unrated'}</span></p><p style="color:#ccc">"${item.review || 'No notes left.'}"</p>` : 
-        `${progressLine}<p class="accent-text">Status: ${item.status === 'inprogress' ? 'In Progress' : 'Yet to Watch'}</p>`;
+        `${progressLine}`;
+
+    // Add Internal Action Buttons
+    const actions = document.getElementById('hActions');
+    actions.innerHTML = '';
+    if (item.status === 'watchlist') {
+        actions.innerHTML = `<button class="status-pill clickable" onclick="modalChangeStatus(${item.id}, 'watchlist', 'inprogress')">Start Watching</button>
+                             <button class="status-pill clickable" onclick="modalChangeStatus(${item.id}, 'watchlist', 'watched')">Mark Completed</button>`;
+    } else if (item.status === 'inprogress') {
+        actions.innerHTML = `<button class="status-pill clickable" onclick="modalChangeStatus(${item.id}, 'inprogress', 'watched')">Mark Completed</button>`;
+    }
 
     document.getElementById('homeDetailModal').style.display = 'block';
 }
@@ -269,12 +288,10 @@ async function selectForEdit(item) {
     } catch(err) {}
 
     tempSelection = {
-        id: item.id, 
-        title: item.title || item.name, 
+        id: item.id, title: item.title || item.name, 
         poster: item.poster_path || item.poster || details.poster_path, 
         backdrop: item.backdrop_path || item.backdrop || details.backdrop_path,
-        type: type, 
-        overview: details.overview || item.overview, 
+        type: type, overview: details.overview || item.overview, 
         cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : (item.cast || 'N/A'),
         genres: details.genres ? details.genres.map(g=>g.name).join(', ') : (item.genres || 'N/A'),
         language: getLangName(details.original_language || item.language),
@@ -358,7 +375,7 @@ function commitToLibrary() {
     const entry = { ...tempSelection, status: document.getElementById('formStatus').value, rating: currentRating, review: document.getElementById('formReview').value, season: document.getElementById('formSeason').value, episode: document.getElementById('formEp').value };
     ['watchlist', 'inprogress', 'watched'].forEach(key => { myData[key] = myData[key].filter(i => i.id !== entry.id); });
     myData[entry.status].push(entry);
-    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    localStorage.setItem('watchopedia_v10', JSON.stringify(myData));
     closeEditForm();
 }
 
@@ -401,13 +418,13 @@ async function runBulkImport() {
             await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) { console.error(`Failed to import ${title}`, error); }
     }
-    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    localStorage.setItem('watchopedia_v10', JSON.stringify(myData));
     document.getElementById('bulkImportText').value = '';
     statusText.innerText = `Done! Imported ${successCount} titles.`;
     btn.disabled = false; renderHome();
 }
 
-// --- ENHANCED EXPLORE PAGE ---
+// --- EXPLORE PAGE ---
 async function loadExploreCategory() {
     const type = document.getElementById('exploreCategory').value;
     let url = '';

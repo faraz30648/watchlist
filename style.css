@@ -14,7 +14,7 @@ body {
     padding-top: 100px; 
 }
 
-h1, h2, h3, .logo { 
+h1, h2, h3, .logo, .page-header { 
     font-family: 'Cormorant Garamond', serif; 
 }
 
@@ -82,7 +82,7 @@ h1, h2, h3, .logo {
 
 .card img { 
     width: 100%; 
-    border-radius: 2px; 
+    border-radius: 4px; 
     transition: 0.3s; 
     border: 1px solid transparent; 
 }
@@ -100,8 +100,9 @@ h1, h2, h3, .logo {
     width: 100%; 
     margin-top: 5px; 
     cursor: pointer; 
-    padding: 6px; 
-    font-weight: bold; 
+    padding: 8px; 
+    font-weight: bold;
+    border-radius: 2px; 
 }
 
 /* Explore Page Layout */
@@ -124,7 +125,7 @@ h1, h2, h3, .logo {
     flex: 1; 
     background: var(--panel); 
     border: 1px solid var(--border); 
-    border-radius: 4px; 
+    border-radius: 8px; 
     overflow: hidden; 
     display: flex; 
     flex-direction: column; 
@@ -162,8 +163,7 @@ h1, h2, h3, .logo {
     padding: 15px;
     cursor: pointer;
     border-bottom: 1px solid #222;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     transition: background 0.2s;
     color: #eee;
 }
@@ -178,16 +178,7 @@ h1, h2, h3, .logo {
     border-radius: 8px; 
     border: 1px solid var(--border); 
     margin-top: 30px; 
-}
-
-.close-form { 
-    position: absolute; 
-    top: 15px; 
-    right: 20px; 
-    font-size: 2rem; 
-    cursor: pointer; 
-    color: var(--white); 
-    line-height: 1; 
+    box-shadow: 0 30px 60px rgba(0,0,0,0.8);
 }
 
 .form-grid { 
@@ -198,7 +189,7 @@ h1, h2, h3, .logo {
 
 #editPoster { 
     width: 280px; 
-    border-radius: 4px; 
+    border-radius: 6px; 
     box-shadow: 0 20px 40px rgba(0,0,0,0.8); 
 }
 
@@ -241,23 +232,35 @@ select {
     padding-right: 2.5rem !important;
 }
 
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--white);
+    background: #050505;
+}
+
 .save-btn { 
     background: var(--white); 
     color: black; 
     border: none; 
-    padding: 18px; 
+    padding: 15px; 
     font-weight: bold; 
     cursor: pointer; 
-    margin-top: 20px; 
     text-transform: uppercase; 
     letter-spacing: 1px; 
+    border-radius: 4px;
+    transition: 0.3s;
+}
+
+.save-btn:hover {
+    opacity: 0.8;
 }
 
 /* Stars & Accents */
 .star-rating { 
-    font-size: 24px; 
-    color: var(--text-gray); 
+    font-size: 28px; 
+    color: #333; 
     cursor: pointer; 
+    line-height: 1;
 }
 
 .star.active { 
@@ -269,7 +272,7 @@ select {
     font-style: italic; 
 }
 
-/* Modal View */
+/* Modal View - Fixed for Scrolling */
 .full-modal { 
     display: none; 
     position: fixed; 
@@ -277,43 +280,51 @@ select {
     left: 0; 
     width: 100%; 
     height: 100%; 
-    background: rgba(0,0,0,0.98); 
+    background: rgba(0,0,0,0.95); 
     z-index: 2000; 
 }
 
 .modal-inner { 
     width: 90%; 
     max-width: 1000px; 
-    margin: 50px auto; 
+    margin: 5vh auto; 
     background: var(--panel); 
     border: 1px solid var(--border); 
+    border-radius: 8px;
     position: relative; 
+    max-height: 90vh; /* Constrains modal height */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .modal-hero { 
-    height: 400px; 
+    height: 300px; 
     background-size: cover; 
     background-position: center; 
+    flex-shrink: 0; /* Prevents hero from squishing */
 }
 
 .modal-data { 
     display: grid; 
     grid-template-columns: 1fr 1fr; 
-    padding: 50px; 
-    gap: 60px; 
+    padding: 40px; 
+    gap: 40px; 
+    overflow-y: auto; /* Enables scrolling for text content */
 }
 
 .close-x { 
     position: absolute; 
-    top: 20px; 
-    right: 30px; 
+    top: 15px; 
+    right: 25px; 
     font-size: 2.5rem; 
     cursor: pointer; 
     color: var(--white); 
+    z-index: 10;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #444; }
+::-webkit-scrollbar-thumb:hover { background: #555; }

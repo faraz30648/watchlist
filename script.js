@@ -2,10 +2,10 @@ const API_KEY = '0010a32a4e1e60188f2036b82b0a8a1b';
 const IMG_PATH = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_PATH = 'https://image.tmdb.org/t/p/w1280';
 
-let myData = JSON.parse(localStorage.getItem('watchopedia_v5')) || { watchlist: [], watched: [] };
+let myData = JSON.parse(localStorage.getItem('watchopedia_v6')) || { watchlist: [], inprogress: [], watched: [] };
 let tempSelection = null;
+let currentRating = 0;
 
-// --- NAVIGATION ---
 function showPage(pageId) {
     document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
     document.getElementById(pageId).style.display = 'block';
@@ -13,21 +13,33 @@ function showPage(pageId) {
     if(pageId === 'explorePage') getExplore();
 }
 
-// --- HOME PAGE (READER VIEW) ---
+// --- HOME PAGE (3 SECTIONS) ---
 function renderHome() {
-    const draw = (list, id) => {
+    const draw = (list, id, nextStatus, btnText) => {
         const el = document.getElementById(id);
-        el.innerHTML = list.length ? '' : '<p style="color:#444">Empty.</p>';
+        el.innerHTML = list.length ? '' : '<p style="color:#222">Empty.</p>';
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `<img src="${IMG_PATH + item.poster}">`;
-            card.onclick = () => openHomeDetail(item);
+            card.innerHTML = `
+                <img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                ${btnText ? `<button class="card-btn" onclick='changeStatus(${item.id}, "${item.status}", "${nextStatus}")'>${btnText}</button>` : ''}
+            `;
             el.appendChild(card);
         });
     };
-    draw(myData.watchlist, 'homeWatchlist');
-    draw(myData.watched, 'homeWatched');
+    draw(myData.watchlist, 'homeWatchlist', 'inprogress', 'START WATCHING');
+    draw(myData.inprogress, 'homeInProgress', 'watched', 'MARK AS DONE');
+    draw(myData.watched, 'homeWatched', null, null);
+}
+
+function changeStatus(id, oldStatus, newStatus) {
+    const itemIndex = myData[oldStatus].findIndex(i => i.id === id);
+    const item = myData[oldStatus].splice(itemIndex, 1)[0];
+    item.status = newStatus;
+    myData[newStatus].push(item);
+    localStorage.setItem('watchopedia_v6', JSON.stringify(myData));
+    renderHome();
 }
 
 function openHomeDetail(item) {
@@ -39,8 +51,8 @@ function openHomeDetail(item) {
 
     const journal = document.getElementById('hJournal');
     journal.innerHTML = item.status === 'watched' ? 
-        `<h3>Archive Entry</h3><p>Rating: ★ ${item.rating}/10</p><p>${item.review}</p>` : 
-        `<p class="accent-text">Pending Viewing.</p>`;
+        `<h3>Archive Entry</h3><p>Rating: ${'★'.repeat(item.rating)}</p><p>${item.review}</p>` : 
+        `<p class="accent-text">Status: ${item.status === 'inprogress' ? 'In Progress' : 'Yet to Watch'}</p>`;
 
     document.getElementById('homeDetailModal').style.display = 'block';
 }
@@ -84,24 +96,35 @@ async function selectForEdit(item) {
 
 function toggleFormFields() {
     const status = document.getElementById('formStatus').value;
-    document.getElementById('watchedFields').style.display = status === 'watched' ? 'block' : 'none';
-    document.getElementById('tvFields').style.display = (status === 'watched' && tempSelection.type === 'tv') ? 'block' : 'none';
+    document.getElementById('watchedFields').style.display = (status === 'watched' || status === 'inprogress') ? 'block' : 'none';
+    document.getElementById('tvFields').style.display = (tempSelection.type === 'tv') ? 'block' : 'none';
 }
+
+// --- STAR RATING LOGIC ---
+document.querySelectorAll('.star').forEach(star => {
+    star.onclick = (e) => {
+        currentRating = e.target.dataset.value;
+        document.querySelectorAll('.star').forEach(s => {
+            s.classList.toggle('active', s.dataset.value <= currentRating);
+        });
+    };
+});
 
 function commitToLibrary() {
     const entry = {
         ...tempSelection,
         status: document.getElementById('formStatus').value,
-        rating: document.getElementById('formRating').value,
+        rating: currentRating,
         review: document.getElementById('formReview').value,
         season: document.getElementById('formSeason').value,
         episode: document.getElementById('formEp').value
     };
-    myData.watchlist = myData.watchlist.filter(i => i.id !== entry.id);
-    myData.watched = myData.watched.filter(i => i.id !== entry.id);
+    ['watchlist', 'inprogress', 'watched'].forEach(key => {
+        myData[key] = myData[key].filter(i => i.id !== entry.id);
+    });
     myData[entry.status].push(entry);
-    localStorage.setItem('watchopedia_v5', JSON.stringify(myData));
-    alert("Updated.");
+    localStorage.setItem('watchopedia_v6', JSON.stringify(myData));
+    alert("Collection updated.");
     showPage('homePage');
 }
 
@@ -124,19 +147,14 @@ async function showExploreDetail(item) {
     const type = item.media_type || (item.title ? 'movie' : 'tv');
     const res = await fetch(`https://api.themoviedb.org/3/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
     const data = await res.json();
-
-    // Escape single quotes for the onclick string
     const itemData = JSON.stringify(item).replace(/'/g, "&apos;");
 
     document.getElementById('detailContent').innerHTML = `
-        <h2 style="font-size:1.8rem">${data.title || data.name}</h2>
-        <p class="accent-text">${data.genres.map(g=>g.name).join(' • ')}</p>
-        <p style="font-size:0.85rem">${data.overview}</p>
-        <button class="save-btn" style="width:100%" onclick="showPage('addPage'); selectForEdit(${itemData})">
-            Import to Curator
-        </button>
+        <h2 style="font-size:2rem; margin-bottom:10px;">${data.title || data.name}</h2>
+        <p class="accent-text" style="margin-bottom:20px;">${data.genres.map(g=>g.name).join(' • ')}</p>
+        <p style="font-size:0.9rem; line-height:1.8; margin-bottom:30px;">${data.overview}</p>
+        <button class="save-btn" style="width:100%" onclick='showPage("addPage"); selectForEdit(${itemData})'>Import to Curator</button>
     `;
 }
 
-// Initialize the app on the Home Page
 showPage('homePage');

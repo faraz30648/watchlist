@@ -10,7 +10,7 @@
 <body>
 
     <nav class="navbar">
-        <div class="logo" onclick="showPage('homePage')" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <div class="logo" onclick="resetFiltersAndShowHome()" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
                 <line x1="7" y1="2" x2="7" y2="22"></line>
@@ -24,17 +24,25 @@
             WATCHOPEDIA
         </div>
         <div class="nav-links">
-            <button onclick="showPage('homePage')">Collection</button>
+            <button onclick="resetFiltersAndShowHome()">Collection</button>
             <button onclick="showPage('addPage')">Curate</button>
             <button onclick="showPage('explorePage')">Explore</button>
         </div>
     </nav>
 
     <main id="homePage" class="page-content">
+        
+        <div id="inProgressBanner" class="hero-banner" style="display:none;">
+            <div class="hero-banner-content">
+                <p>Continue Watching</p>
+                <h2 id="bannerTitle"></h2>
+            </div>
+        </div>
+
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">Yet to Watch</h2>
-                <div style="display:flex; gap:10px; align-items:center;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
                     <div class="section-filters" id="filters-watchlist"></div>
                     <button class="expand-btn" onclick="toggleExpand('homeWatchlist', this)">Expand</button>
                 </div>
@@ -49,7 +57,7 @@
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">In Progress</h2>
-                <div style="display:flex; gap:10px; align-items:center;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
                     <div class="section-filters" id="filters-inprogress"></div>
                     <button class="expand-btn" onclick="toggleExpand('homeInProgress', this)">Expand</button>
                 </div>
@@ -64,7 +72,7 @@
         <section class="archive-section">
             <div class="category-header">
                 <h2 class="category-head">Completed</h2>
-                <div style="display:flex; gap:10px; align-items:center;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
                     <div class="section-filters" id="filters-watched"></div>
                     <button class="expand-btn" onclick="toggleExpand('homeWatched', this)">Expand</button>
                 </div>
@@ -82,9 +90,10 @@
             <div class="modal-hero" id="modalHero"></div>
             <div class="modal-data">
                 <div class="meta-side">
-                    <h1 id="hTitle"></h1>
-                    <p id="hMeta" class="accent-text"></p>
+                    <h1 id="hTitle" style="margin-bottom: 5px;"></h1>
+                    <div id="hMeta" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;"></div>
                     <div id="hJournal" class="journal-box"></div>
+                    <div id="hActions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;"></div>
                 </div>
                 <div class="desc-side">
                     <h3>The Plot</h3>

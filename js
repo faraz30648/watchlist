@@ -124,13 +124,19 @@ async function showExploreDetail(item) {
     const type = item.media_type || (item.title ? 'movie' : 'tv');
     const res = await fetch(`https://api.themoviedb.org/3/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
     const data = await res.json();
+
+    // Escape single quotes for the onclick string
+    const itemData = JSON.stringify(item).replace(/'/g, "&apos;");
+
     document.getElementById('detailContent').innerHTML = `
         <h2 style="font-size:1.8rem">${data.title || data.name}</h2>
         <p class="accent-text">${data.genres.map(g=>g.name).join(' • ')}</p>
         <p style="font-size:0.85rem">${data.overview}</p>
-        <button class="save-btn" style="width:100%" onclick='showPage("addPage"); selectForEdit(${JSON.stringify(item)})'>Import to Curator</button>
-    `; // Added missing backtick and semicolon
-} // Added missing closing brace for the function
+        <button class="save-btn" style="width:100%" onclick="showPage('addPage'); selectForEdit(${itemData})">
+            Import to Curator
+        </button>
+    `;
+}
 
 // Initialize the app on the Home Page
 showPage('homePage');

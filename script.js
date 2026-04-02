@@ -6,17 +6,17 @@ let myData = JSON.parse(localStorage.getItem('watchopedia_v9')) || { watchlist: 
 let tempSelection = null;
 let currentRating = 0;
 
-// Filter States (Added Category)
+// Filter States (Added Search and Category)
 let activeFilters = { 
-    watchlist: { category: 'All', genre: 'All', lang: 'All' }, 
-    inprogress: { category: 'All', genre: 'All', lang: 'All' }, 
-    watched: { category: 'All', genre: 'All', lang: 'All' } 
+    watchlist: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
+    inprogress: { search: '', category: 'All', genre: 'All', lang: 'All' }, 
+    watched: { search: '', category: 'All', genre: 'All', lang: 'All' } 
 };
 
-// Utility: Convert language code to full language name (Fixed uppercase bug)
+// Utility: Convert language code to full language name
 function getLangName(code) {
     if (!code || code === 'N/A') return 'Unknown';
-    if (code.length > 2 && code !== 'N/A') return code; // Already full name
+    if (code.length > 2 && code !== 'N/A') return code;
     try {
         const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
         return displayNames.of(code.toLowerCase());
@@ -28,12 +28,11 @@ function getLangName(code) {
 // Utility: Smart Category Derivation
 function deriveCategory(type, details) {
     let cat = type === 'tv' ? 'Series' : 'Movie';
-    if (details.genres) {
+    if (details && details.genres) {
         const genreNames = details.genres.map(g => g.name);
         if (genreNames.includes('Documentary')) {
             cat = 'Documentary';
         } else if (genreNames.includes('Animation')) {
-            // Check if origin is Japan for Anime classification
             if (details.origin_country && details.origin_country.includes('JP')) {
                 cat = 'Anime';
             } else {
@@ -55,9 +54,10 @@ function closeEditForm() {
     document.getElementById('editForm').style.display = 'none';
     document.getElementById('adminSearch').value = '';
     tempSelection = null;
+    showPage('homePage'); // Returns to home if user cancels
 }
 
-// --- HOME PAGE LOGIC (Filters, Scrolling & Expanding) ---
+// --- HOME PAGE LOGIC (Filters, Search, Scrolling & Expanding) ---
 function scrollSection(id, amount) {
     document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' });
 }
@@ -89,9 +89,7 @@ function buildFilters(list, sectionId) {
     let genres = new Set();
     let langs = new Set();
 
-    // Auto-migrate and gather data
     list.forEach(item => {
-        // Upgrade legacy data on the fly
         if (item.language && item.language.length === 2) item.language = getLangName(item.language);
         if (!item.language) item.language = 'Unknown';
         if (!item.mediaCategory) item.mediaCategory = item.type === 'tv' ? 'Series' : 'Movie';
@@ -109,32 +107,39 @@ function buildFilters(list, sectionId) {
         </select>`;
     };
 
-    container.innerHTML = createSelect('category', categories, activeFilters[sectionId].category) + 
+    const createSearch = (currentValue) => {
+        return `<input type="text" class="section-search" placeholder="Search..." value="${currentValue}" oninput="updateFilter('${sectionId}', 'search', this.value)">`;
+    };
+
+    container.innerHTML = createSearch(activeFilters[sectionId].search) +
+                          createSelect('category', categories, activeFilters[sectionId].category) + 
                           createSelect('genre', genres, activeFilters[sectionId].genre) + 
                           createSelect('lang', langs, activeFilters[sectionId].lang);
 }
 
 function renderHome() {
-    let dataModified = false;
-
     const draw = (rawList, id, sectionKey) => {
         buildFilters(rawList, sectionKey);
 
         const fCat = activeFilters[sectionKey].category;
         const fGenre = activeFilters[sectionKey].genre;
         const fLang = activeFilters[sectionKey].lang;
+        const fSearch = activeFilters[sectionKey].search.toLowerCase();
         
         let list = rawList.filter(item => {
+            let passSearch = fSearch === '' || (item.title && item.title.toLowerCase().includes(fSearch));
             let passCat = fCat === 'All' || item.mediaCategory === fCat;
             let passGenre = fGenre === 'All' || (item.genres && item.genres.includes(fGenre));
             let passLang = fLang === 'All' || item.language === fLang;
-            return passCat && passGenre && passLang;
+            return passSearch && passCat && passGenre && passLang;
         });
 
         const el = document.getElementById(id);
         el.innerHTML = list.length ? '' : '<p style="color:#333; font-style:italic;">No matches.</p>';
         
         list.forEach(item => {
+            if (!item.poster || item.poster === 'undefined') return; // Safety block for broken old data
+
             const card = document.createElement('div');
             card.className = 'card';
             card.oncontextmenu = (e) => showContextMenu(e, item);
@@ -154,7 +159,6 @@ function renderHome() {
     draw(myData.inprogress, 'homeInProgress', 'inprogress');
     draw(myData.watched, 'homeWatched', 'watched');
 
-    // Save if auto-migration updated legacy records
     localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
 }
 
@@ -179,17 +183,14 @@ document.addEventListener('click', () => { if (contextMenu.style.display === 'bl
 
 async function contextChangeStatus(newStatus) {
     if (!rightClickedItem) return;
-    
     const isTv = rightClickedItem.type === 'tv';
 
-    // Open Curate page to force S/E or Rating entry
     if ((newStatus === 'inprogress' && isTv) || newStatus === 'watched') {
         showPage('addPage');
         await selectForEdit(rightClickedItem);
         document.getElementById('formStatus').value = newStatus;
         toggleFormFields();
     } else {
-        // Direct move if no extra data is required
         const old = rightClickedItem.status;
         const idx = myData[old].findIndex(i => i.id === rightClickedItem.id);
         const item = myData[old].splice(idx, 1)[0];
@@ -217,7 +218,6 @@ function openHomeDetail(item) {
     document.getElementById('hCast').innerText = item.cast;
 
     const journal = document.getElementById('hJournal');
-    
     let progressLine = '';
     if (item.status === 'inprogress') progressLine = `<p class="accent-text" style="color:var(--white); font-weight:bold;">Currently Watching: Season ${item.season || '?'} • Episode ${item.episode || '?'}</p>`;
     
@@ -254,17 +254,26 @@ adminSearch.addEventListener('input', async (e) => {
 });
 
 async function selectForEdit(item) {
-    const type = item.media_type || (item.title ? 'movie' : 'tv');
-    const res = await fetch(`https://api.themoviedb.org/3/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
-    const details = await res.json();
+    const type = item.media_type || item.type || (item.title ? 'movie' : 'tv');
+    let details = {};
+    
+    try {
+        const res = await fetch(`https://api.themoviedb.org/3/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
+        details = await res.json();
+    } catch(err) {}
 
+    // THE FIX: This safely grabs the poster and backdrop whether it came from the API search or your local database
     tempSelection = {
-        id: item.id, title: item.title || item.name, poster: item.poster_path, backdrop: item.backdrop_path,
-        type: type, overview: item.overview, 
-        cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
-        genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A',
-        language: getLangName(details.original_language),
-        mediaCategory: deriveCategory(type, details)
+        id: item.id, 
+        title: item.title || item.name, 
+        poster: item.poster_path || item.poster || details.poster_path, 
+        backdrop: item.backdrop_path || item.backdrop || details.backdrop_path,
+        type: type, 
+        overview: details.overview || item.overview, 
+        cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : (item.cast || 'N/A'),
+        genres: details.genres ? details.genres.map(g=>g.name).join(', ') : (item.genres || 'N/A'),
+        language: getLangName(details.original_language || item.language),
+        mediaCategory: deriveCategory(type, details) || item.mediaCategory
     };
 
     document.getElementById('editForm').style.display = 'block';
@@ -345,7 +354,7 @@ function commitToLibrary() {
     ['watchlist', 'inprogress', 'watched'].forEach(key => { myData[key] = myData[key].filter(i => i.id !== entry.id); });
     myData[entry.status].push(entry);
     localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
-    closeEditForm(); showPage('homePage');
+    closeEditForm();
 }
 
 // --- BULK IMPORT LOGIC ---
@@ -375,9 +384,8 @@ async function runBulkImport() {
                 const details = await detailRes.json();
                 
                 myData.watchlist.push({
-                    id: item.id, title: item.title || item.name, poster: item.poster_path, backdrop: item.backdrop_path,
-                    type: type, overview: item.overview, 
-                    cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
+                    id: item.id, title: item.title || item.name, poster: item.poster_path || details.poster_path, backdrop: item.backdrop_path || details.backdrop_path,
+                    type: type, overview: item.overview, cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
                     genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A', 
                     language: getLangName(details.original_language),
                     mediaCategory: deriveCategory(type, details),

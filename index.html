@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watchopedia | The Private Collection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="logo">WATCHOPEDIA</div>
+        <div class="nav-links">
+            <button onclick="showPage('homePage')">Collection</button>
+            <button onclick="showPage('addPage')">Add New</button>
+            <button onclick="showPage('explorePage')">Explore</button>
+        </div>
+    </nav>
+
+    <main id="homePage" class="page-content">
+        <section class="archive-section">
+            <h2 class="category-head">In Progress</h2>
+            <div class="horizontal-scroll" id="homeWatchlist"></div>
+        </section>
+        <section class="archive-section">
+            <h2 class="category-head">The Archive</h2>
+            <div class="horizontal-scroll" id="homeWatched"></div>
+        </section>
+    </main>
+
+    <div id="homeDetailModal" class="full-modal" onclick="closeHomeDetail()">
+        <div class="modal-inner" onclick="event.stopPropagation()">
+            <div class="modal-hero" id="modalHero"></div>
+            <div class="modal-data">
+                <div class="meta-side">
+                    <h1 id="hTitle"></h1>
+                    <p id="hMeta" class="accent-text"></p>
+                    <div id="hJournal" class="journal-box"></div>
+                </div>
+                <div class="desc-side">
+                    <h3>The Plot</h3>
+                    <p id="hPlot"></p>
+                    <h3>The Cast</h3>
+                    <p id="hCast"></p>
+                </div>
+            </div>
+            <span class="close-x" onclick="closeHomeDetail()">&times;</span>
+        </div>
+    </div>
+
+    <main id="addPage" class="page-content" style="display:none;">
+        <div class="admin-container">
+            <h1 class="page-header">Curate Collection</h1>
+            <input type="text" id="adminSearch" placeholder="Search for a title to add or edit...">
+            <div id="adminSearchResults" class="admin-search-results"></div>
+            
+            <div id="editForm" class="edit-form" style="display:none;">
+                <div class="form-grid">
+                    <img id="editPoster" src="" alt="">
+                    <div class="form-inputs">
+                        <h2 id="editTitle"></h2>
+                        <label>Status</label>
+                        <select id="formStatus" onchange="toggleFormFields()">
+                            <option value="watchlist">Watchlist</option>
+                            <option value="watched">Already Watched</option>
+                        </select>
+                        <div id="watchedFields" style="display:none;">
+                            <div id="tvFields" style="display:none;">
+                                <label>Progress (Season / Episode)</label>
+                                <div style="display:flex; gap:10px;">
+                                    <input type="number" id="formSeason" placeholder="S">
+                                    <input type="number" id="formEp" placeholder="E">
+                                </div>
+                            </div>
+                            <label>Personal Rating /10</label>
+                            <input type="number" id="formRating" max="10">
+                            <label>Archive Notes</label>
+                            <textarea id="formReview" rows="5"></textarea>
+                        </div>
+                        <button class="save-btn" onclick="commitToLibrary()">Update Archive</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="explorePage" class="page-content" style="display:none;">
+        <div class="explore-layout">
+            <div class="explore-grid" id="exploreGrid"></div>
+            <div id="exploreDetail" class="explore-detail-pane">
+                <div id="detailContent"><p class="dimmed">Select a title to explore...</p></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

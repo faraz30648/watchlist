@@ -2,16 +2,19 @@ const API_KEY = '0010a32a4e1e60188f2036b82b0a8a1b';
 const IMG_PATH = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_PATH = 'https://image.tmdb.org/t/p/w1280';
 
-// Using LocalStorage since AppScript is paused
-let myData = JSON.parse(localStorage.getItem('watchopedia_v8')) || { watchlist: [], inprogress: [], watched: [] };
+// Added language extraction support
+let myData = JSON.parse(localStorage.getItem('watchopedia_v9')) || { watchlist: [], inprogress: [], watched: [] };
 let tempSelection = null;
 let currentRating = 0;
+
+// Filter States
+let activeFilters = { watchlist: { genre: 'All', lang: 'All' }, inprogress: { genre: 'All', lang: 'All' }, watched: { genre: 'All', lang: 'All' } };
 
 function showPage(pageId) {
     document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
     document.getElementById(pageId).style.display = 'block';
     if(pageId === 'homePage') renderHome();
-    if(pageId === 'explorePage') getExplore();
+    if(pageId === 'explorePage') loadExploreCategory();
 }
 
 function closeEditForm() {
@@ -20,98 +23,131 @@ function closeEditForm() {
     tempSelection = null;
 }
 
-// --- HOME PAGE & RIGHT CLICK LOGIC ---
-const contextMenu = document.getElementById('contextMenu');
-let rightClickedItem = null;
+// --- HOME PAGE LOGIC (Filters & Scrolling) ---
+function scrollSection(id, amount) {
+    document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' });
+}
+
+function updateFilter(section, type, value) {
+    activeFilters[section][type] = value;
+    renderHome();
+}
+
+function buildFilters(list, sectionId) {
+    const container = document.getElementById(`filters-${sectionId}`);
+    if (!container) return;
+
+    let genres = new Set();
+    let langs = new Set();
+
+    list.forEach(item => {
+        if (item.genres && item.genres !== 'N/A') item.genres.split(', ').forEach(g => genres.add(g));
+        if (item.language && item.language !== 'N/A') langs.add(item.language);
+    });
+
+    const createSelect = (type, options, currentValue) => {
+        return `<select onchange="updateFilter('${sectionId}', '${type}', this.value)">
+            <option value="All">All ${type === 'genre' ? 'Genres' : 'Languages'}</option>
+            ${Array.from(options).sort().map(opt => `<option value="${opt}" ${currentValue === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+        </select>`;
+    };
+
+    container.innerHTML = createSelect('genre', genres, activeFilters[sectionId].genre) + 
+                          createSelect('lang', langs, activeFilters[sectionId].lang);
+}
 
 function renderHome() {
-    const draw = (list, id) => {
+    const draw = (rawList, id, sectionKey) => {
+        buildFilters(rawList, sectionKey);
+
+        // Apply Filters
+        const fGenre = activeFilters[sectionKey].genre;
+        const fLang = activeFilters[sectionKey].lang;
+        
+        let list = rawList.filter(item => {
+            let passGenre = fGenre === 'All' || (item.genres && item.genres.includes(fGenre));
+            let passLang = fLang === 'All' || (item.language === fLang);
+            return passGenre && passLang;
+        });
+
         const el = document.getElementById(id);
-        el.innerHTML = list.length ? '' : '<p style="color:#333; font-style:italic;">Empty section.</p>';
+        el.innerHTML = list.length ? '' : '<p style="color:#333; font-style:italic;">No matches.</p>';
+        
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            
-            // Attach Right-Click Event
             card.oncontextmenu = (e) => showContextMenu(e, item);
             
-            // Left-Click still opens details
-            card.innerHTML = `<img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>`;
+            const progressText = (item.status === 'inprogress' && item.season) 
+                ? `<div class="card-progress">S${item.season} E${item.episode || '?'}</div>` : '';
+
+            card.innerHTML = `
+                <img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                ${progressText}
+            `;
             el.appendChild(card);
         });
     };
-    draw(myData.watchlist, 'homeWatchlist');
-    draw(myData.inprogress, 'homeInProgress');
-    draw(myData.watched, 'homeWatched');
+
+    draw(myData.watchlist, 'homeWatchlist', 'watchlist');
+    draw(myData.inprogress, 'homeInProgress', 'inprogress');
+    draw(myData.watched, 'homeWatched', 'watched');
 }
 
-// Show Context Menu
+// --- CONTEXT MENU (Unchanged) ---
+const contextMenu = document.getElementById('contextMenu');
+let rightClickedItem = null;
+
 function showContextMenu(e, item) {
-    e.preventDefault(); // Stop default browser menu
+    e.preventDefault();
     rightClickedItem = item;
     
-    // Hide the status the item is currently in
     document.getElementById('menuMoveWatchlist').style.display = item.status === 'watchlist' ? 'none' : 'block';
     document.getElementById('menuMoveInProgress').style.display = item.status === 'inprogress' ? 'none' : 'block';
     document.getElementById('menuMoveWatched').style.display = item.status === 'watched' ? 'none' : 'block';
 
-    // Position menu at mouse cursor
-    let x = e.pageX;
-    let y = e.pageY;
-    
-    // Safety check so menu doesn't go off-screen
+    let x = e.pageX; let y = e.pageY;
     if (x + 200 > window.innerWidth) x = window.innerWidth - 220;
-
-    contextMenu.style.top = `${y}px`;
-    contextMenu.style.left = `${x}px`;
-    contextMenu.style.display = 'block';
+    contextMenu.style.top = `${y}px`; contextMenu.style.left = `${x}px`; contextMenu.style.display = 'block';
 }
 
-// Hide Context Menu when clicking anywhere else
-document.addEventListener('click', () => {
-    if (contextMenu.style.display === 'block') {
-        contextMenu.style.display = 'none';
-    }
-});
+document.addEventListener('click', () => { if (contextMenu.style.display === 'block') contextMenu.style.display = 'none'; });
 
-// Actions fired from the Context Menu
 function contextChangeStatus(newStatus) {
-    if (rightClickedItem) {
-        changeStatus(rightClickedItem.id, rightClickedItem.status, newStatus);
-    }
+    if (!rightClickedItem) return;
+    const old = rightClickedItem.status;
+    const idx = myData[old].findIndex(i => i.id === rightClickedItem.id);
+    const item = myData[old].splice(idx, 1)[0];
+    item.status = newStatus;
+    myData[newStatus].push(item);
+    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    renderHome();
 }
 
 function contextRemoveItem() {
     if (rightClickedItem) {
-        ['watchlist', 'inprogress', 'watched'].forEach(key => {
-            myData[key] = myData[key].filter(i => i.id !== rightClickedItem.id);
-        });
-        localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
+        ['watchlist', 'inprogress', 'watched'].forEach(key => { myData[key] = myData[key].filter(i => i.id !== rightClickedItem.id); });
+        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
         renderHome();
     }
-}
-
-function changeStatus(id, oldStatus, newStatus) {
-    const itemIndex = myData[oldStatus].findIndex(i => i.id === id);
-    const item = myData[oldStatus].splice(itemIndex, 1)[0];
-    item.status = newStatus;
-    myData[newStatus].push(item);
-    localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
-    renderHome();
 }
 
 // --- RECORD DETAIL MODAL ---
 function openHomeDetail(item) {
     document.getElementById('modalHero').style.backgroundImage = `url(${BACKDROP_PATH + item.backdrop})`;
     document.getElementById('hTitle').innerText = item.title;
-    document.getElementById('hMeta').innerText = `${item.genres} • ${item.type.toUpperCase()}`;
+    document.getElementById('hMeta').innerText = `${item.genres} • ${item.language || 'N/A'}`;
     document.getElementById('hPlot').innerText = item.overview;
     document.getElementById('hCast').innerText = item.cast;
 
     const journal = document.getElementById('hJournal');
+    
+    let progressLine = '';
+    if (item.status === 'inprogress') progressLine = `<p class="accent-text" style="color:var(--white); font-weight:bold;">Currently Watching: Season ${item.season || '?'} • Episode ${item.episode || '?'}</p>`;
+    
     journal.innerHTML = item.status === 'watched' ? 
         `<h3>Journal Entry</h3><p>Rating: <span style="color:#fff">${'★'.repeat(item.rating) || 'Unrated'}</span></p><p style="color:#ccc">"${item.review || 'No notes left.'}"</p>` : 
-        `<p class="accent-text">Progress: ${item.status === 'inprogress' ? 'Currently Watching' : 'Yet to Watch'}</p>`;
+        `${progressLine}<p class="accent-text">Status: ${item.status === 'inprogress' ? 'In Progress' : 'Yet to Watch'}</p>`;
 
     document.getElementById('homeDetailModal').style.display = 'block';
 }
@@ -125,15 +161,9 @@ const adminSearchResults = document.getElementById('adminSearchResults');
 
 adminSearch.addEventListener('input', async (e) => {
     const query = e.target.value;
-    if (query.length < 3) {
-        adminSearchResults.innerHTML = '';
-        adminSearchResults.style.display = 'none';
-        return;
-    }
-
+    if (query.length < 3) { adminSearchResults.style.display = 'none'; return; }
     const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`);
     const data = await res.json();
-    
     adminSearchResults.innerHTML = '';
     
     if (data.results.length > 0) {
@@ -145,9 +175,7 @@ adminSearch.addEventListener('input', async (e) => {
             div.onclick = () => selectForEdit(item);
             adminSearchResults.appendChild(div);
         });
-    } else {
-        adminSearchResults.style.display = 'none';
-    }
+    } else { adminSearchResults.style.display = 'none'; }
 });
 
 async function selectForEdit(item) {
@@ -157,40 +185,38 @@ async function selectForEdit(item) {
 
     tempSelection = {
         id: item.id, title: item.title || item.name, poster: item.poster_path, backdrop: item.backdrop_path,
-        type: type, overview: item.overview, cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
-        genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A'
+        type: type, overview: item.overview, 
+        cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
+        genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A',
+        language: details.original_language ? details.original_language.toUpperCase() : 'N/A' // ADDED LANGUAGE EXTRACTION
     };
 
     document.getElementById('editForm').style.display = 'block';
     document.getElementById('editTitle').innerText = tempSelection.title;
     document.getElementById('editPoster').src = IMG_PATH + tempSelection.poster;
-    adminSearchResults.style.display = 'none';
-    adminSearch.value = '';
+    adminSearchResults.style.display = 'none'; adminSearch.value = '';
 
     const existing = [...myData.watchlist, ...myData.inprogress, ...myData.watched].find(i => i.id === item.id);
     if(existing) {
         document.getElementById('formStatus').value = existing.status;
         document.getElementById('formReview').value = existing.review || '';
         currentRating = existing.rating || 0;
-        updateStarsUI();
     } else {
         document.getElementById('formStatus').value = 'watchlist';
         document.getElementById('formReview').value = '';
         currentRating = 0;
-        updateStarsUI();
     }
+    updateStarsUI();
 
     const sSelect = document.getElementById('formSeason');
     const eSelect = document.getElementById('formEp');
-    sSelect.innerHTML = '<option value="">Select Season</option>';
-    eSelect.innerHTML = '<option value="">Select Episode</option>';
+    sSelect.innerHTML = '<option value="">Select Season</option>'; eSelect.innerHTML = '<option value="">Select Episode</option>';
 
     if (type === 'tv' && details.seasons) {
         details.seasons.forEach(s => {
             if(s.season_number > 0) {
                 const opt = document.createElement('option');
-                opt.value = s.season_number;
-                opt.innerText = `Season ${s.season_number}`;
+                opt.value = s.season_number; opt.innerText = `Season ${s.season_number}`;
                 sSelect.appendChild(opt);
             }
         });
@@ -200,86 +226,119 @@ async function selectForEdit(item) {
             if(existing.episode) eSelect.value = existing.episode;
         }
     }
-    
     toggleFormFields();
 }
 
 async function updateEpisodes() {
     const sNum = document.getElementById('formSeason').value;
     const eSelect = document.getElementById('formEp');
-    
-    if (!sNum) {
-        eSelect.innerHTML = '<option value="">Select Episode</option>';
-        return;
-    }
-
+    if (!sNum) { eSelect.innerHTML = '<option value="">Select Episode</option>'; return; }
     eSelect.innerHTML = '<option value="">Loading...</option>';
     try {
         const res = await fetch(`https://api.themoviedb.org/3/tv/${tempSelection.id}/season/${sNum}?api_key=${API_KEY}`);
         const sDetails = await res.json();
-        
         eSelect.innerHTML = '<option value="">Select Episode</option>';
         if(sDetails.episodes) {
             sDetails.episodes.forEach(ep => {
                 const opt = document.createElement('option');
-                opt.value = ep.episode_number;
-                opt.innerText = `Ep ${ep.episode_number}: ${ep.name}`;
+                opt.value = ep.episode_number; opt.innerText = `Ep ${ep.episode_number}: ${ep.name}`;
                 eSelect.appendChild(opt);
             });
         }
-    } catch(err) {
-        eSelect.innerHTML = '<option value="">Error loading</option>';
-    }
+    } catch(err) { eSelect.innerHTML = '<option value="">Error loading</option>'; }
 }
 
 function toggleFormFields() {
     const status = document.getElementById('formStatus').value;
+    const isTv = tempSelection && tempSelection.type === 'tv';
     document.getElementById('watchedFields').style.display = (status === 'watched' || status === 'inprogress') ? 'block' : 'none';
-    document.getElementById('tvFields').style.display = (tempSelection && tempSelection.type === 'tv') ? 'flex' : 'none';
+    document.getElementById('tvFields').style.display = isTv ? 'flex' : 'none';
+    const displayDetails = status === 'watched' ? 'flex' : 'none';
+    document.getElementById('ratingGroup').style.display = displayDetails;
+    document.getElementById('reviewGroup').style.display = displayDetails;
 }
 
-function updateStarsUI() {
-    document.querySelectorAll('.star').forEach(s => {
-        s.classList.toggle('active', s.dataset.value <= currentRating);
-    });
-}
-
-document.querySelectorAll('.star').forEach(star => {
-    star.onclick = (e) => {
-        currentRating = parseInt(e.target.dataset.value);
-        updateStarsUI();
-    };
-});
+function updateStarsUI() { document.querySelectorAll('.star').forEach(s => s.classList.toggle('active', s.dataset.value <= currentRating)); }
+document.querySelectorAll('.star').forEach(star => { star.onclick = (e) => { currentRating = parseInt(e.target.dataset.value); updateStarsUI(); }; });
 
 function commitToLibrary() {
     if (!tempSelection) return;
-    const entry = {
-        ...tempSelection,
-        status: document.getElementById('formStatus').value,
-        rating: currentRating,
-        review: document.getElementById('formReview').value,
-        season: document.getElementById('formSeason').value,
-        episode: document.getElementById('formEp').value
-    };
-    
-    ['watchlist', 'inprogress', 'watched'].forEach(key => {
-        myData[key] = myData[key].filter(i => i.id !== entry.id);
-    });
-    
+    const entry = { ...tempSelection, status: document.getElementById('formStatus').value, rating: currentRating, review: document.getElementById('formReview').value, season: document.getElementById('formSeason').value, episode: document.getElementById('formEp').value };
+    ['watchlist', 'inprogress', 'watched'].forEach(key => { myData[key] = myData[key].filter(i => i.id !== entry.id); });
     myData[entry.status].push(entry);
-    localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
-    
-    closeEditForm();
-    showPage('homePage');
+    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    closeEditForm(); showPage('homePage');
 }
 
-// --- EXPLORE LOGIC ---
-async function getExplore() {
-    const res = await fetch(`https://api.themoviedb.org/3/trending/all/day?api_key=${API_KEY}`);
+// --- BULK IMPORT LOGIC ---
+async function runBulkImport() {
+    const text = document.getElementById('bulkImportText').value;
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const statusText = document.getElementById('bulkStatus');
+    const btn = document.getElementById('bulkBtn');
+    if (lines.length === 0) return;
+
+    btn.disabled = true; statusText.style.display = 'block';
+    let successCount = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        const title = lines[i];
+        statusText.innerText = `Importing (${i + 1}/${lines.length}): ${title}...`;
+        try {
+            const searchRes = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${title}`);
+            const searchData = await searchRes.json();
+            if (searchData.results && searchData.results.length > 0) {
+                const item = searchData.results[0];
+                const type = item.media_type || (item.title ? 'movie' : 'tv');
+                const existing = [...myData.watchlist, ...myData.inprogress, ...myData.watched].find(x => x.id === item.id);
+                if (existing) continue;
+
+                const detailRes = await fetch(`https://api.themoviedb.org/3/${type}/${item.id}?api_key=${API_KEY}&append_to_response=credits`);
+                const details = await detailRes.json();
+                
+                myData.watchlist.push({
+                    id: item.id, title: item.title || item.name, poster: item.poster_path, backdrop: item.backdrop_path,
+                    type: type, overview: item.overview, cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
+                    genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A', language: details.original_language ? details.original_language.toUpperCase() : 'N/A',
+                    status: 'watchlist', rating: 0, review: '', season: '', episode: ''
+                });
+                successCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) { console.error(`Failed to import ${title}`, error); }
+    }
+    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+    document.getElementById('bulkImportText').value = '';
+    statusText.innerText = `Done! Imported ${successCount} titles.`;
+    btn.disabled = false; renderHome();
+}
+
+// --- ENHANCED EXPLORE PAGE ---
+async function loadExploreCategory() {
+    const type = document.getElementById('exploreCategory').value;
+    let url = '';
+    if(type === 'trending') url = `https://api.themoviedb.org/3/trending/all/day?api_key=${API_KEY}`;
+    if(type === 'popular_movie') url = `https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}`;
+    if(type === 'popular_tv') url = `https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}`;
+    if(type === 'top_rated') url = `https://api.themoviedb.org/3/movie/top_rated?api_key=${API_KEY}`;
+    
+    document.getElementById('exploreSearch').value = ''; // clear search
+    fetchAndRenderExplore(url);
+}
+
+async function handleExploreSearch(e) {
+    const query = e.target.value;
+    if(query.length < 3) { if(query.length === 0) loadExploreCategory(); return; }
+    fetchAndRenderExplore(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`);
+}
+
+async function fetchAndRenderExplore(url) {
+    const res = await fetch(url);
     const data = await res.json();
     const grid = document.getElementById('exploreGrid');
     grid.innerHTML = '';
     data.results.forEach(item => {
+        if(!item.poster_path) return; // skip missing images
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `<img src="${IMG_PATH + item.poster_path}">`;
@@ -302,4 +361,5 @@ async function showExploreDetail(item) {
     `;
 }
 
+// Start App
 showPage('homePage');

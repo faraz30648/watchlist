@@ -2,13 +2,47 @@ const API_KEY = '0010a32a4e1e60188f2036b82b0a8a1b';
 const IMG_PATH = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_PATH = 'https://image.tmdb.org/t/p/w1280';
 
-// Added language extraction support
 let myData = JSON.parse(localStorage.getItem('watchopedia_v9')) || { watchlist: [], inprogress: [], watched: [] };
 let tempSelection = null;
 let currentRating = 0;
 
-// Filter States
-let activeFilters = { watchlist: { genre: 'All', lang: 'All' }, inprogress: { genre: 'All', lang: 'All' }, watched: { genre: 'All', lang: 'All' } };
+// Filter States (Added Category)
+let activeFilters = { 
+    watchlist: { category: 'All', genre: 'All', lang: 'All' }, 
+    inprogress: { category: 'All', genre: 'All', lang: 'All' }, 
+    watched: { category: 'All', genre: 'All', lang: 'All' } 
+};
+
+// Utility: Convert language code to full language name (Fixed uppercase bug)
+function getLangName(code) {
+    if (!code || code === 'N/A') return 'Unknown';
+    if (code.length > 2 && code !== 'N/A') return code; // Already full name
+    try {
+        const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+        return displayNames.of(code.toLowerCase());
+    } catch (e) {
+        return code.toUpperCase();
+    }
+}
+
+// Utility: Smart Category Derivation
+function deriveCategory(type, details) {
+    let cat = type === 'tv' ? 'Series' : 'Movie';
+    if (details.genres) {
+        const genreNames = details.genres.map(g => g.name);
+        if (genreNames.includes('Documentary')) {
+            cat = 'Documentary';
+        } else if (genreNames.includes('Animation')) {
+            // Check if origin is Japan for Anime classification
+            if (details.origin_country && details.origin_country.includes('JP')) {
+                cat = 'Anime';
+            } else {
+                cat = 'Animation';
+            }
+        }
+    }
+    return cat;
+}
 
 function showPage(pageId) {
     document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
@@ -23,9 +57,23 @@ function closeEditForm() {
     tempSelection = null;
 }
 
-// --- HOME PAGE LOGIC (Filters & Scrolling) ---
+// --- HOME PAGE LOGIC (Filters, Scrolling & Expanding) ---
 function scrollSection(id, amount) {
     document.getElementById(id).scrollBy({ left: amount, behavior: 'smooth' });
+}
+
+function toggleExpand(id, btn) {
+    const el = document.getElementById(id);
+    const wrapper = el.parentElement;
+    if (el.classList.contains('expanded-grid')) {
+        el.classList.remove('expanded-grid');
+        wrapper.classList.remove('expanded');
+        btn.innerText = 'Expand';
+    } else {
+        el.classList.add('expanded-grid');
+        wrapper.classList.add('expanded');
+        btn.innerText = 'Collapse';
+    }
 }
 
 function updateFilter(section, type, value) {
@@ -37,37 +85,50 @@ function buildFilters(list, sectionId) {
     const container = document.getElementById(`filters-${sectionId}`);
     if (!container) return;
 
+    let categories = new Set();
     let genres = new Set();
     let langs = new Set();
 
+    // Auto-migrate and gather data
     list.forEach(item => {
+        // Upgrade legacy data on the fly
+        if (item.language && item.language.length === 2) item.language = getLangName(item.language);
+        if (!item.language) item.language = 'Unknown';
+        if (!item.mediaCategory) item.mediaCategory = item.type === 'tv' ? 'Series' : 'Movie';
+
+        categories.add(item.mediaCategory);
         if (item.genres && item.genres !== 'N/A') item.genres.split(', ').forEach(g => genres.add(g));
-        if (item.language && item.language !== 'N/A') langs.add(item.language);
+        langs.add(item.language);
     });
 
     const createSelect = (type, options, currentValue) => {
+        let label = type === 'category' ? 'Categories' : type === 'genre' ? 'Genres' : 'Languages';
         return `<select onchange="updateFilter('${sectionId}', '${type}', this.value)">
-            <option value="All">All ${type === 'genre' ? 'Genres' : 'Languages'}</option>
+            <option value="All">All ${label}</option>
             ${Array.from(options).sort().map(opt => `<option value="${opt}" ${currentValue === opt ? 'selected' : ''}>${opt}</option>`).join('')}
         </select>`;
     };
 
-    container.innerHTML = createSelect('genre', genres, activeFilters[sectionId].genre) + 
+    container.innerHTML = createSelect('category', categories, activeFilters[sectionId].category) + 
+                          createSelect('genre', genres, activeFilters[sectionId].genre) + 
                           createSelect('lang', langs, activeFilters[sectionId].lang);
 }
 
 function renderHome() {
+    let dataModified = false;
+
     const draw = (rawList, id, sectionKey) => {
         buildFilters(rawList, sectionKey);
 
-        // Apply Filters
+        const fCat = activeFilters[sectionKey].category;
         const fGenre = activeFilters[sectionKey].genre;
         const fLang = activeFilters[sectionKey].lang;
         
         let list = rawList.filter(item => {
+            let passCat = fCat === 'All' || item.mediaCategory === fCat;
             let passGenre = fGenre === 'All' || (item.genres && item.genres.includes(fGenre));
-            let passLang = fLang === 'All' || (item.language === fLang);
-            return passGenre && passLang;
+            let passLang = fLang === 'All' || item.language === fLang;
+            return passCat && passGenre && passLang;
         });
 
         const el = document.getElementById(id);
@@ -92,9 +153,12 @@ function renderHome() {
     draw(myData.watchlist, 'homeWatchlist', 'watchlist');
     draw(myData.inprogress, 'homeInProgress', 'inprogress');
     draw(myData.watched, 'homeWatched', 'watched');
+
+    // Save if auto-migration updated legacy records
+    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
 }
 
-// --- CONTEXT MENU (Unchanged) ---
+// --- CONTEXT MENU (With Smart Form Modals) ---
 const contextMenu = document.getElementById('contextMenu');
 let rightClickedItem = null;
 
@@ -113,15 +177,27 @@ function showContextMenu(e, item) {
 
 document.addEventListener('click', () => { if (contextMenu.style.display === 'block') contextMenu.style.display = 'none'; });
 
-function contextChangeStatus(newStatus) {
+async function contextChangeStatus(newStatus) {
     if (!rightClickedItem) return;
-    const old = rightClickedItem.status;
-    const idx = myData[old].findIndex(i => i.id === rightClickedItem.id);
-    const item = myData[old].splice(idx, 1)[0];
-    item.status = newStatus;
-    myData[newStatus].push(item);
-    localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
-    renderHome();
+    
+    const isTv = rightClickedItem.type === 'tv';
+
+    // Open Curate page to force S/E or Rating entry
+    if ((newStatus === 'inprogress' && isTv) || newStatus === 'watched') {
+        showPage('addPage');
+        await selectForEdit(rightClickedItem);
+        document.getElementById('formStatus').value = newStatus;
+        toggleFormFields();
+    } else {
+        // Direct move if no extra data is required
+        const old = rightClickedItem.status;
+        const idx = myData[old].findIndex(i => i.id === rightClickedItem.id);
+        const item = myData[old].splice(idx, 1)[0];
+        item.status = newStatus;
+        myData[newStatus].push(item);
+        localStorage.setItem('watchopedia_v9', JSON.stringify(myData));
+        renderHome();
+    }
 }
 
 function contextRemoveItem() {
@@ -136,7 +212,7 @@ function contextRemoveItem() {
 function openHomeDetail(item) {
     document.getElementById('modalHero').style.backgroundImage = `url(${BACKDROP_PATH + item.backdrop})`;
     document.getElementById('hTitle').innerText = item.title;
-    document.getElementById('hMeta').innerText = `${item.genres} • ${item.language || 'N/A'}`;
+    document.getElementById('hMeta').innerText = `${item.mediaCategory || 'Media'} • ${item.genres} • ${item.language || 'N/A'}`;
     document.getElementById('hPlot').innerText = item.overview;
     document.getElementById('hCast').innerText = item.cast;
 
@@ -153,7 +229,6 @@ function openHomeDetail(item) {
 }
 
 function closeHomeDetail() { document.getElementById('homeDetailModal').style.display = 'none'; }
-
 
 // --- ADD / CURATE LOGIC ---
 const adminSearch = document.getElementById('adminSearch');
@@ -188,7 +263,8 @@ async function selectForEdit(item) {
         type: type, overview: item.overview, 
         cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
         genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A',
-        language: details.original_language ? details.original_language.toUpperCase() : 'N/A' // ADDED LANGUAGE EXTRACTION
+        language: getLangName(details.original_language),
+        mediaCategory: deriveCategory(type, details)
     };
 
     document.getElementById('editForm').style.display = 'block';
@@ -251,8 +327,10 @@ async function updateEpisodes() {
 function toggleFormFields() {
     const status = document.getElementById('formStatus').value;
     const isTv = tempSelection && tempSelection.type === 'tv';
+    
     document.getElementById('watchedFields').style.display = (status === 'watched' || status === 'inprogress') ? 'block' : 'none';
-    document.getElementById('tvFields').style.display = isTv ? 'flex' : 'none';
+    document.getElementById('tvFields').style.display = (isTv && status === 'inprogress') ? 'flex' : 'none';
+    
     const displayDetails = status === 'watched' ? 'flex' : 'none';
     document.getElementById('ratingGroup').style.display = displayDetails;
     document.getElementById('reviewGroup').style.display = displayDetails;
@@ -298,8 +376,11 @@ async function runBulkImport() {
                 
                 myData.watchlist.push({
                     id: item.id, title: item.title || item.name, poster: item.poster_path, backdrop: item.backdrop_path,
-                    type: type, overview: item.overview, cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
-                    genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A', language: details.original_language ? details.original_language.toUpperCase() : 'N/A',
+                    type: type, overview: item.overview, 
+                    cast: details.credits && details.credits.cast ? details.credits.cast.slice(0,5).map(c=>c.name).join(', ') : 'N/A',
+                    genres: details.genres ? details.genres.map(g=>g.name).join(', ') : 'N/A', 
+                    language: getLangName(details.original_language),
+                    mediaCategory: deriveCategory(type, details),
                     status: 'watchlist', rating: 0, review: '', season: '', episode: ''
                 });
                 successCount++;
@@ -322,7 +403,7 @@ async function loadExploreCategory() {
     if(type === 'popular_tv') url = `https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}`;
     if(type === 'top_rated') url = `https://api.themoviedb.org/3/movie/top_rated?api_key=${API_KEY}`;
     
-    document.getElementById('exploreSearch').value = ''; // clear search
+    document.getElementById('exploreSearch').value = ''; 
     fetchAndRenderExplore(url);
 }
 
@@ -338,7 +419,7 @@ async function fetchAndRenderExplore(url) {
     const grid = document.getElementById('exploreGrid');
     grid.innerHTML = '';
     data.results.forEach(item => {
-        if(!item.poster_path) return; // skip missing images
+        if(!item.poster_path) return; 
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `<img src="${IMG_PATH + item.poster_path}">`;
@@ -355,7 +436,7 @@ async function showExploreDetail(item) {
 
     document.getElementById('detailContent').innerHTML = `
         <h2 style="font-size:2rem; margin-bottom:10px;">${data.title || data.name}</h2>
-        <p class="accent-text" style="margin-bottom:20px;">${data.genres ? data.genres.map(g=>g.name).join(' • ') : ''}</p>
+        <p class="accent-text" style="margin-bottom:20px;">${deriveCategory(type, data)} • ${data.genres ? data.genres.map(g=>g.name).join(' • ') : ''}</p>
         <div style="height: calc(100% - 150px);"><p style="font-size:0.9rem; line-height:1.8;">${data.overview}</p></div>
         <button class="save-btn" style="width:100%; margin-top:20px;" onclick='showPage("addPage"); selectForEdit(${itemData})'>Import to Curator</button>
     `;

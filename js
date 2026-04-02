@@ -130,6 +130,4 @@ async function showExploreDetail(item) {
         <p style="font-size:0.85rem">${data.overview}</p>
         <button class="save-btn" style="width:100%" onclick='showPage("addPage"); selectForEdit(${JSON.stringify(item)})'>Import to Curator</button>
     `;
-}
-
 showPage('homePage');

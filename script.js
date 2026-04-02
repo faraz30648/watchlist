@@ -2,7 +2,8 @@ const API_KEY = '0010a32a4e1e60188f2036b82b0a8a1b';
 const IMG_PATH = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_PATH = 'https://image.tmdb.org/t/p/w1280';
 
-let myData = JSON.parse(localStorage.getItem('watchopedia_v7')) || { watchlist: [], inprogress: [], watched: [] };
+// Using LocalStorage since AppScript is paused
+let myData = JSON.parse(localStorage.getItem('watchopedia_v8')) || { watchlist: [], inprogress: [], watched: [] };
 let tempSelection = null;
 let currentRating = 0;
 
@@ -19,24 +20,75 @@ function closeEditForm() {
     tempSelection = null;
 }
 
-// --- HOME PAGE LOGIC ---
+// --- HOME PAGE & RIGHT CLICK LOGIC ---
+const contextMenu = document.getElementById('contextMenu');
+let rightClickedItem = null;
+
 function renderHome() {
-    const draw = (list, id, nextStatus, btnText) => {
+    const draw = (list, id) => {
         const el = document.getElementById(id);
         el.innerHTML = list.length ? '' : '<p style="color:#333; font-style:italic;">Empty section.</p>';
         list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `
-                <img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
-                ${btnText ? `<button class="card-btn" onclick='changeStatus(${item.id}, "${item.status}", "${nextStatus}")'>${btnText}</button>` : ''}
-            `;
+            
+            // Attach Right-Click Event
+            card.oncontextmenu = (e) => showContextMenu(e, item);
+            
+            // Left-Click still opens details
+            card.innerHTML = `<img src="${IMG_PATH + item.poster}" onclick='openHomeDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>`;
             el.appendChild(card);
         });
     };
-    draw(myData.watchlist, 'homeWatchlist', 'inprogress', 'START WATCHING');
-    draw(myData.inprogress, 'homeInProgress', 'watched', 'MARK COMPLETED');
-    draw(myData.watched, 'homeWatched', null, null);
+    draw(myData.watchlist, 'homeWatchlist');
+    draw(myData.inprogress, 'homeInProgress');
+    draw(myData.watched, 'homeWatched');
+}
+
+// Show Context Menu
+function showContextMenu(e, item) {
+    e.preventDefault(); // Stop default browser menu
+    rightClickedItem = item;
+    
+    // Hide the status the item is currently in
+    document.getElementById('menuMoveWatchlist').style.display = item.status === 'watchlist' ? 'none' : 'block';
+    document.getElementById('menuMoveInProgress').style.display = item.status === 'inprogress' ? 'none' : 'block';
+    document.getElementById('menuMoveWatched').style.display = item.status === 'watched' ? 'none' : 'block';
+
+    // Position menu at mouse cursor
+    let x = e.pageX;
+    let y = e.pageY;
+    
+    // Safety check so menu doesn't go off-screen
+    if (x + 200 > window.innerWidth) x = window.innerWidth - 220;
+
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.display = 'block';
+}
+
+// Hide Context Menu when clicking anywhere else
+document.addEventListener('click', () => {
+    if (contextMenu.style.display === 'block') {
+        contextMenu.style.display = 'none';
+    }
+});
+
+// Actions fired from the Context Menu
+function contextChangeStatus(newStatus) {
+    if (rightClickedItem) {
+        changeStatus(rightClickedItem.id, rightClickedItem.status, newStatus);
+    }
+}
+
+function contextRemoveItem() {
+    if (rightClickedItem) {
+        ['watchlist', 'inprogress', 'watched'].forEach(key => {
+            myData[key] = myData[key].filter(i => i.id !== rightClickedItem.id);
+        });
+        localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
+        renderHome();
+    }
 }
 
 function changeStatus(id, oldStatus, newStatus) {
@@ -44,10 +96,11 @@ function changeStatus(id, oldStatus, newStatus) {
     const item = myData[oldStatus].splice(itemIndex, 1)[0];
     item.status = newStatus;
     myData[newStatus].push(item);
-    localStorage.setItem('watchopedia_v7', JSON.stringify(myData));
+    localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
     renderHome();
 }
 
+// --- RECORD DETAIL MODAL ---
 function openHomeDetail(item) {
     document.getElementById('modalHero').style.backgroundImage = `url(${BACKDROP_PATH + item.backdrop})`;
     document.getElementById('hTitle').innerText = item.title;
@@ -64,6 +117,7 @@ function openHomeDetail(item) {
 }
 
 function closeHomeDetail() { document.getElementById('homeDetailModal').style.display = 'none'; }
+
 
 // --- ADD / CURATE LOGIC ---
 const adminSearch = document.getElementById('adminSearch');
@@ -113,7 +167,6 @@ async function selectForEdit(item) {
     adminSearchResults.style.display = 'none';
     adminSearch.value = '';
 
-    // Check if we already have this in our DB to pre-fill
     const existing = [...myData.watchlist, ...myData.inprogress, ...myData.watched].find(i => i.id === item.id);
     if(existing) {
         document.getElementById('formStatus').value = existing.status;
@@ -127,7 +180,6 @@ async function selectForEdit(item) {
         updateStarsUI();
     }
 
-    // Dynamic TV Seasons
     const sSelect = document.getElementById('formSeason');
     const eSelect = document.getElementById('formEp');
     sSelect.innerHTML = '<option value="">Select Season</option>';
@@ -144,7 +196,7 @@ async function selectForEdit(item) {
         });
         if(existing && existing.season) {
             sSelect.value = existing.season;
-            await updateEpisodes(); // Fetch episodes for the saved season
+            await updateEpisodes();
             if(existing.episode) eSelect.value = existing.episode;
         }
     }
@@ -215,7 +267,7 @@ function commitToLibrary() {
     });
     
     myData[entry.status].push(entry);
-    localStorage.setItem('watchopedia_v7', JSON.stringify(myData));
+    localStorage.setItem('watchopedia_v8', JSON.stringify(myData));
     
     closeEditForm();
     showPage('homePage');
@@ -245,8 +297,8 @@ async function showExploreDetail(item) {
     document.getElementById('detailContent').innerHTML = `
         <h2 style="font-size:2rem; margin-bottom:10px;">${data.title || data.name}</h2>
         <p class="accent-text" style="margin-bottom:20px;">${data.genres ? data.genres.map(g=>g.name).join(' • ') : ''}</p>
-        <p style="font-size:0.9rem; line-height:1.8; margin-bottom:30px;">${data.overview}</p>
-        <button class="save-btn" style="width:100%" onclick='showPage("addPage"); selectForEdit(${itemData})'>Import to Curator</button>
+        <div style="height: calc(100% - 150px);"><p style="font-size:0.9rem; line-height:1.8;">${data.overview}</p></div>
+        <button class="save-btn" style="width:100%; margin-top:20px;" onclick='showPage("addPage"); selectForEdit(${itemData})'>Import to Curator</button>
     `;
 }
 
